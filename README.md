@@ -1,4 +1,4 @@
-# canomind
+# CanoMind
 
 **Mind map, diagrams, gantt chart, timeline and more; an alternative open-source software for Xmind, Visio and other paid mind map softwares, completely offline editor.** Shapes, connectors, topics, relationships, data binding, color schemes, and real support for `.vsdx` / `.xmind` files. Open source, offline, and yours.
 
