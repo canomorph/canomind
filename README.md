@@ -5,6 +5,8 @@
 `100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.4.0`
 
 ---
+Screenshot
+<img width="1282" height="802" alt="Canomind 0 4 0 screenshot" src="https://github.com/user-attachments/assets/bbac6ff8-42f1-4276-9bc4-08c2a30501b7" />
 
 ## 📦 Download
 
