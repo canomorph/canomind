@@ -5,7 +5,7 @@
 
 Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 
-`100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.4.0`
+`100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.9.0`
 
 #### [Türkçe açıklama için tıklayın](https://github.com/canomorph/canomind/blob/main/README.tr.md)
 
