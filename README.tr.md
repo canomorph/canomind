@@ -1,13 +1,16 @@
-<div align="center">
-
 # CanoMind
 
 **Hafif ve çok platformlu bir zihin haritası ve diyagram editörü.**
 Zihin haritaları, akış şemaları, organizasyon şemaları, Gantt planları ve daha fazlası, tek bir hızlı masaüstü uygulamasında.
 
-[English](README.md) · Sürüm 0.9.0 · Canomorph Creative
+[Click for English](README.md) · Sürüm 0.4.0 · Canomorph Creative
 
-</div>
+## Ekran Görüntüleri
+<img width="800" alt="Canomind 0 4 0 screenshot" src="https://github.com/user-attachments/assets/bbac6ff8-42f1-4276-9bc4-08c2a30501b7" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175254" src="https://github.com/user-attachments/assets/1981d986-7b21-467e-9969-8b656aa5e569" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175322" src="https://github.com/user-attachments/assets/e875a5f7-c7fe-4fcd-b9a5-bd1053132f52" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175351" src="https://github.com/user-attachments/assets/7ca940cd-3963-42fb-8894-e8c9af48995d" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175415" src="https://github.com/user-attachments/assets/40abae39-f6a4-422a-9ba0-c2353071283c" />
 
 ---
 
