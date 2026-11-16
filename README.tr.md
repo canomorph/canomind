@@ -8,11 +8,23 @@ Zihin haritaları, akış şemaları, organizasyon şemaları, Gantt planları v
 #### [Click for English](README.md)
 
 ## Ekran Görüntüleri
-<img width="800" alt="Canomind 0 4 0 screenshot" src="https://github.com/user-attachments/assets/bbac6ff8-42f1-4276-9bc4-08c2a30501b7" />
-<img width="400" alt="Ekran görüntüsü 2026-11-15 175254" src="https://github.com/user-attachments/assets/1981d986-7b21-467e-9969-8b656aa5e569" />
-<img width="400" alt="Ekran görüntüsü 2026-11-15 175322" src="https://github.com/user-attachments/assets/e875a5f7-c7fe-4fcd-b9a5-bd1053132f52" />
-<img width="400" alt="Ekran görüntüsü 2026-11-15 175351" src="https://github.com/user-attachments/assets/7ca940cd-3963-42fb-8894-e8c9af48995d" />
-<img width="400" alt="Ekran görüntüsü 2026-11-15 175415" src="https://github.com/user-attachments/assets/40abae39-f6a4-422a-9ba0-c2353071283c" />
+<img width="800" alt="Ekran görüntüsü 2026-11-16 205500" src="https://github.com/user-attachments/assets/7fb37fe9-2597-414c-956b-2ca7172355e4" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 210724" src="https://github.com/user-attachments/assets/131ca468-a7eb-4f95-be36-75b90a071866" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 205754" src="https://github.com/user-attachments/assets/fd7fa7ba-4699-498d-a099-1e2fe80c24a3" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 205844" src="https://github.com/user-attachments/assets/67704f8d-d3d0-4aae-9599-b227df921249" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 205647" src="https://github.com/user-attachments/assets/7ea8fe4a-44ea-461b-b9d1-7e17e9e42fe6" />
+
+## 📦 İndir
+
+| İşletim Sistemi | Dosya Formatı | Bağlantı |
+|----------|--------|-------|
+| **Windows** | `.exe` / `.msi` / `portable.zip`  | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases) |
+| **macOS** | `.dmg` / `build.zip with .app` | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases)  |
+| **Linux** | `.appimage` / `.deb` / `build.zip` | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases)  |
+
+Programın gördüğü talebe bağlı olarak mobil sürüm için çalışılacaktır.
+
+Latest release: **v0.9.0**
 
 ---
 
