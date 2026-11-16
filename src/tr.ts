@@ -380,6 +380,32 @@ Isometric dots|İzometrik noktalı
 Remember my choice|Seçimimi hatırla
 Bullet|Madde işareti
 Circle|Daire
-Dash|Tire`;
+Dash|Tire
+General|Genel
+Spelling and grammar|Yazım ve dil bilgisi
+Pressing Enter while editing text|Metin düzenlerken Enter tuşu
+Finishes editing|Düzenlemeyi bitirir
+Inserts a new line|Yeni satır ekler
+Check spelling as you type|Yazarken yazımı denetle
+Check grammar as you type|Yazarken dil bilgisini denetle
+Capitalize first letter of sentences|Cümle başlarında büyük harf kullan
+Flag repeated words|Tekrarlanan kelimeleri işaretle
+Check spacing and punctuation|Boşluk ve noktalamayı denetle
+Ignore words in UPPERCASE|BÜYÜK HARFLİ kelimeleri yoksay
+Custom size|Özel boyut
+Custom size…|Özel boyut…
+Unit|Birim
+Width|Genişlik
+Height|Yükseklik
+Apply|Uygula
+A series (mm)|A serisi (mm)
+B series (mm)|B serisi (mm)
+Background color|Arka plan rengi
+Background image|Arka plan görseli
+Horizontal auto layout|Yatay otomatik yerleşim
+Vertical auto layout|Dikey otomatik yerleşim
+Auto layout|Otomatik yerleşim
+Entire page|Sayfanın tamamı
+Image|Görsel`;
 export const tr: Record<string, string> = {};
 pairs.split("\n").forEach((l) => { const i = l.indexOf("|"); if (i > 0) tr[l.slice(0, i)] = l.slice(i + 1); });

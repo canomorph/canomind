@@ -71,9 +71,10 @@ export function Ribbon() {
   const cStyle = (sel.map((i) => doc.conns[i]).find(Boolean) as Conn | undefined)?.style ?? S.connStyle;
   const recase = (f: (s: string) => string) => S.mutate((d) => sel.forEach((i) => { if (d.items[i]) d.items[i] = { ...d.items[i], text: f(d.items[i].text) }; }));
   const gallery = (c: () => void, fn: (k: Kind) => void) => <div className="mgrid">{STENCILS["Basic Shapes"].concat(STENCILS["Arrows"], STENCILS["Callouts & Notes"]).map((s, n) => <button key={n} className="gi" title={t(s.n)} onClick={() => { fn(s.k); c(); }}><Thumb k={s.k} /></button>)}</div>;
-  const fontList = S.fonts.length ? S.fonts : FONTS, curF = it?.ff ?? "Calibri", fopts = fontList.includes(curF) ? fontList : [curF, ...fontList];
+  const cs = S.curStyle();
+  const fontList = S.fonts.length ? S.fonts : FONTS, curF = cs.f, fopts = fontList.includes(curF) ? fontList : [curF, ...fontList];
   const pg = pageOf(doc), land = pg.w >= pg.h, isSize = (w: number, h: number) => (pg.w === w && pg.h === h) || (pg.w === h && pg.h === w);
-  const sizeRow = (c: () => void, label: string, w: number, h: number, extra: string) => <MI key={label} l={`${label}   ${extra}`} act={isSize(w, h)} on={() => S.setPageSize(w, h)} close={c} />;
+  const prow = (c: () => void, label: string, w: number, h: number, sub: string) => <button key={label} className={"mi" + (isSize(w, h) ? " act" : "")} onClick={() => { S.setPageSize(w, h); c(); }}><span>{label}</span><small className="dim">{sub}</small></button>;
   const navToggle = () => S.setPane(S.pane === "nav" ? "none" : "nav");
   const bgc = doc.bg?.color, bgn = doc.bg?.imgs.length ?? 0, el = (id: string) => document.getElementById(id);
   const mkSw = (): SwStyle | null => (it ? { id: uid(), fill: it.fill, stroke: it.stroke, color: it.color } : null);
@@ -92,13 +93,13 @@ export function Ribbon() {
         <Stack><Btn sm i="cut" l="Cut" on={S.cut} dis={!hasSel} /><Btn sm i="copy" l="Copy" on={S.copy} dis={!hasSel} />
           <Btn sm i="formatpainter" l="Format Painter" act={!!S.painter} dis={!it && !S.painter} on={() => { if (S.painter) S.setPainter(null); else if (it) { const p: any = {}; PICK.forEach((k) => { p[k] = (it as any)[k]; }); S.setPainter(p); } }} /></Stack></>),
       grp("Font", "fontcolor", <div className="col2">
-        <Row><select className="rsel ff" title={t("Font")} value={curF} onChange={(e) => pat({ ff: e.target.value })}>{fopts.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}</select>
-          <select className="rsel fs" title={t("Font size")} value={it?.fs ?? 16} onChange={(e) => pat({ fs: +e.target.value })}>{[8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].map((n) => <option key={n} value={n}>{n}pt.</option>)}</select>
-          <IB i="grow" l="Increase font size" on={() => pat({ fs: Math.min(96, (it?.fs ?? 16) + 2) })} /><IB i="shrink" l="Decrease font size" on={() => pat({ fs: Math.max(6, (it?.fs ?? 16) - 2) })} /></Row>
-        <Row><IB i="bold" l="Bold" act={!!it?.bold} on={() => pat({ bold: !it?.bold })} /><IB i="italic" l="Italic" act={!!it?.italic} on={() => pat({ italic: !it?.italic })} />
-          <IB i="underline" l="Underline" act={!!it?.ul} on={() => pat({ ul: !it?.ul })} /><IB i="strike" l="Strikethrough" act={!!it?.st} on={() => pat({ st: !it?.st })} />
+        <Row><select className="rsel ff" title={t("Font")} value={curF} onChange={(e) => S.fmt({ f: e.target.value })}>{fopts.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}</select>
+          <select className="rsel fs" title={t("Font size")} value={cs.z} onChange={(e) => S.fmt({ z: +e.target.value })}>{[8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].concat([8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].includes(cs.z) ? [] : [cs.z]).sort((a, b) => a - b).map((n) => <option key={n} value={n}>{n}pt.</option>)}</select>
+          <IB i="grow" l="Increase font size" on={() => S.fmt({ z: Math.min(96, cs.z + 2) })} /><IB i="shrink" l="Decrease font size" on={() => S.fmt({ z: Math.max(6, cs.z - 2) })} /></Row>
+        <Row><IB i="bold" l="Bold" act={cs.b} on={() => S.fmtToggle("b")} /><IB i="italic" l="Italic" act={cs.i} on={() => S.fmtToggle("i")} />
+          <IB i="underline" l="Underline" act={cs.u} on={() => S.fmtToggle("u")} /><IB i="strike" l="Strikethrough" act={cs.k} on={() => S.fmtToggle("k")} />
           <Drop mode="icon" i="case" l="Change case">{(c) => <><MI l="UPPERCASE" on={() => recase((s) => s.toUpperCase())} close={c} /><MI l="lowercase" on={() => recase((s) => s.toLowerCase())} close={c} /><MI l="Capitalize Each Word" on={() => recase((s) => s.replace(/\b\w/g, (m) => m.toUpperCase()))} close={c} /></>}</Drop>
-          <ColorMenu mode="icon" i="fontcolor" l="Font color" v={hex(it?.color, "#c00000")} on={(c) => pat({ color: c })} /></Row></div>),
+          <ColorMenu mode="icon" i="fontcolor" l="Font color" v={hex(cs.c, "#c00000")} on={(c) => S.fmt({ c })} /></Row></div>),
       grp("Paragraph", "alignl", <div className="col2">
         <Row><IB i="valtop" l="Top" act={it?.va === "top"} on={() => pat({ va: "top" })} /><IB i="valmid" l="Middle" act={(it?.va ?? "middle") === "middle"} on={() => pat({ va: "middle" })} /><IB i="valbot" l="Bottom" act={it?.va === "bottom"} on={() => pat({ va: "bottom" })} /><Drop mode="icon" i="bullets" l="Bullets">{(c) => <>{BULLETS.map(([v, l]) => <MI key={v} l={l} act={(it?.bt ?? (it?.bul ? "dot" : "none")) === v} on={() => pat({ bt: v === "none" ? undefined : v, bul: false })} close={c} />)}</>}</Drop></Row>
         <Row><IB i="alignl" l="Align left" act={it?.ha === "left"} on={() => pat({ ha: "left" })} /><IB i="alignc" l="Center" act={(it?.ha ?? "center") === "center"} on={() => pat({ ha: "center" })} /><IB i="alignr" l="Align right" act={it?.ha === "right"} on={() => pat({ ha: "right" })} />
@@ -126,17 +127,26 @@ export function Ribbon() {
       grp("Shapes", "rectangle", <><Drop mode="big" i="changeshape" l="Change Shape">{(c) => gallery(c, (k) => pat({ kind: k }))}</Drop><Btn i="templates" l="Shapes" act={S.pane === "shapes"} on={() => S.setPane(S.pane === "shapes" ? "none" : "shapes")} /></>),
       grp("Mind map", "child", <><Btn i="child" l="Subtopic" on={() => sel[0] && S.addChild(sel[0], "r", false)} dis={!it} /><Btn i="sibling" l="Sibling" on={() => sel[0] && S.addSibling(sel[0], false)} dis={!it} /></>),
       grp("Text", "textbox", <><Btn i="notepad" l="Note" on={() => S.addAtCenter("notepad")} /><Btn i="note" l="Sticky note" on={() => S.addAtCenter("note")} /><Btn i="textbox" l="Text box" on={() => S.addAtCenter("text")} /><Btn i="todo" l="To-do box" on={() => S.addAtCenter("todo")} /></>),
-      grp("Media", "image", <Btn i="image" l="Picture" on={() => el("canomind-img")?.click()} />),
+      grp("Media", "image", <Btn i="image" l="Image" on={() => el("canomind-img")?.click()} />),
       grp("Tables & Charts", "table", <><Btn i="table" l="Table" on={() => S.toggle("tableDlg", true)} /><Btn i="chart" l="Chart" on={() => S.toggle("chartDlg", true)} /></>),
     ],
     Design: [
       grp("Page", "pagesize", <>
         <Drop mode="big" i="pagesize" l="Page size">{(c) => <>
-          <div className="lbl hd">{t("A series (cm)")}</div>{A_SIZES.map(([n, w, h]) => sizeRow(c, n, mm2px(w), mm2px(h), `${cm(w)} × ${cm(h)} cm`))}
-          <div className="lbl hd">{t("B series (inch)")}</div>{B_SIZES.map(([n, w, h]) => sizeRow(c, n, mm2px(w), mm2px(h), `${inch(w)} × ${inch(h)} in`))}
-          <div className="lbl hd">{t("Screen (px)")}</div>{SCREENS.map(([n, w, h]) => sizeRow(c, n, w, h, `${w} × ${h} px`))}</>}</Drop>
+          <MI i="edit" l="Custom size…" on={() => S.toggle("sizeDlg", true)} close={c} />
+          <div className="lbl hd">{t("A series (mm)")}</div>{A_SIZES.map(([n, w, h]) => prow(c, n, mm2px(w), mm2px(h), `${w} × ${h} mm · ${mm2px(w)} × ${mm2px(h)} px`))}
+          <div className="lbl hd">{t("B series (mm)")}</div>{B_SIZES.map(([n, w, h]) => prow(c, n, mm2px(w), mm2px(h), `${w} × ${h} mm · ${mm2px(w)} × ${mm2px(h)} px`))}
+          <div className="lbl hd">{t("Screen (px)")}</div>{SCREENS.map(([n, w, h]) => prow(c, n, w, h, `${w} × ${h} px`))}</>}</Drop>
         <Stack><Btn sm i="portrait" l="Portrait" act={!land} on={() => S.setOrientation(false)} /><Btn sm i="landscape" l="Landscape" act={land} on={() => S.setOrientation(true)} /></Stack></>),
-      grp("Layout", "autolayout", <Btn i="autolayout" l="Auto layout" on={S.layout} />),
+      grp("Background color", "palette", <>
+        <div className="bgrow">{([["Auto", undefined, "var(--canvas)"], ["White", "#ffffff", "#ffffff"], ["Sepia", "#f4ecd8", "#f4ecd8"], ["Dark", "#2b2b2b", "#2b2b2b"], ["Black", "#000000", "#000000"]] as [string, string | undefined, string][]).map(([n, v, bg]) => (
+          <button key={n} className={"bgb" + (bgc === v ? " act" : "")} onClick={() => S.bgColor(v)}><b className="sw big" style={{ background: bg }} /><span>{t(n)}</span></button>))}
+          <label className="bgb"><Icon name="palette" size={22} /><span>{t("Custom")}</span><input type="color" value={hex(bgc, "#ffffff")} onChange={(e) => S.bgColor(e.target.value)} /></label></div>
+      </>),
+      grp("Background image", "bgimg", <>
+        <Btn i="bgimg" l="Add" on={() => el("canomind-bg")?.click()} />
+        <Stack><Btn sm i="edit" l="Edit" act={S.bgEdit} dis={!bgn || S.bgDelMode} on={() => useDocs.setState({ bgEdit: !S.bgEdit, bgSel: null })} /><Btn sm i="delete" l="Delete" act={S.bgDelMode} dis={!bgn} on={S.bgDel} /></Stack></>),
+      grp("Layout", "autolayout", <Drop mode="big" i="autolayout" l="Auto layout">{(c) => <><MI i="autolayout" l="Horizontal auto layout" on={() => S.layout("h")} close={c} /><MI i="autolayout" l="Vertical auto layout" on={() => S.layout("v")} close={c} /></>}</Drop>),
       grp("Connector style", "connector", <><Btn i="curve" l="Curved" act={cStyle === "curve"} on={() => pc({ style: "curve" })} /><Btn i="straight" l="Straight" act={cStyle === "straight"} on={() => pc({ style: "straight" })} /><Btn i="elbow" l="Elbow" act={cStyle === "elbow"} on={() => pc({ style: "elbow" })} /></>),
       grp("Color schemes", "palette", <><div className="schemes"><SwGrid list={sc} del={delSC} marks={mkSC} onMark={(id) => setMkSC(flip(mkSC, id))} onApply={(s) => S.palette(s.fill, s.stroke, s.color)} onMove={(f, to) => st.set({ schemes: moveItem(sc, f, to) })} /></div>
         <Stack><Btn sm i="plus" l="Add" dis={!it} on={addSC} /><Btn sm i="delete" l="Delete" act={delSC} on={() => delToggle("sc")} /></Stack></>),
@@ -148,16 +158,10 @@ export function Ribbon() {
     View: [
       grp("Show", "ruler", <>
         <Stack><Btn sm i="ruler" l="Ruler" act={st.ruler} on={() => st.set({ ruler: !st.ruler })} />
-          <Drop mode="sm" i="ruler" l="Page marks">{() => <>{MARK_SIZES.map(([n, w, h]) => { const on = st.rulerMarks.includes(n); return <button key={n} className="mi" onClick={() => st.set({ rulerMarks: on ? st.rulerMarks.filter((x) => x !== n) : [...st.rulerMarks, n] })}><i className={"cbx" + (on ? " on" : "")}>{on ? "✓" : ""}</i><b className="sw" style={{ background: markColor(n) }} />{n}<small style={{ marginLeft: "auto", opacity: 0.7 }}>{n.startsWith("A") ? `${cm(w)} × ${cm(h)} cm` : `${inch(w)} × ${inch(h)} in`}</small></button>; })}</>}</Drop></Stack>
+          <Drop mode="sm" i="ruler" l="Page marks">{() => <>{MARK_SIZES.map(([n, w, h]) => { const on = st.rulerMarks.includes(n); return <button key={n} className="mi" onClick={() => st.set({ rulerMarks: on ? st.rulerMarks.filter((x) => x !== n) : [...st.rulerMarks, n] })}><i className={"cbx" + (on ? " on" : "")}>{on ? "✓" : ""}</i><b className="sw" style={{ background: markColor(n) }} />{n}<small className="dim" style={{ marginLeft: "auto" }}>{`${w} × ${h} mm · ${mm2px(w)} × ${mm2px(h)} px`}</small></button>; })}</>}</Drop></Stack>
         <Stack><Btn sm i="grid" l="Grid" act={T.grid} on={() => S.setGrid(!T.grid)} />
           <Drop mode="sm" i="gridtype" l="Grid type">{(c) => <>{([["square", "Squared"], ["lines", "Lined"], ["dots", "Dotted"], ["iso", "Isometric"], ["isodots", "Isometric dots"]] as const).map(([v, n]) => <MI key={v} l={n} act={T.gridType === v} on={() => S.setGridType(v)} close={c} />)}</>}</Drop></Stack>
         <Btn i="snap" l="Snap" act={st.snap} on={() => st.set({ snap: !st.snap })} /><Btn i="nav" l="Navigation" act={S.pane === "nav"} on={navToggle} /></>),
-      grp("Background", "bgimg", <>
-        <div className="bgrow">{([["Auto", undefined, "var(--canvas)"], ["White", "#ffffff", "#ffffff"], ["Sepia", "#f4ecd8", "#f4ecd8"], ["Dark", "#2b2b2b", "#2b2b2b"], ["Black", "#000000", "#000000"]] as [string, string | undefined, string][]).map(([n, v, bg]) => (
-          <button key={n} className={"bgb" + (bgc === v ? " act" : "")} onClick={() => S.bgColor(v)}><b className="sw big" style={{ background: bg }} /><span>{t(n)}</span></button>))}
-          <label className="bgb"><Icon name="palette" size={22} /><span>{t("Custom")}</span><input type="color" value={hex(bgc, "#ffffff")} onChange={(e) => S.bgColor(e.target.value)} /></label></div>
-        <Btn i="bgimg" l="Background picture" on={() => el("canomind-bg")?.click()} />
-        <Stack><Btn sm i="edit" l="Edit" act={S.bgEdit} dis={!bgn || S.bgDelMode} on={() => useDocs.setState({ bgEdit: !S.bgEdit, bgSel: null })} /><Btn sm i="delete" l="Delete" act={S.bgDelMode} dis={!bgn} on={S.bgDel} /></Stack></>),
     ],
     Help: [
       grp("Help", "help", <><Btn i="help" l="About" on={() => S.toggle("aboutOpen", true)} /><Btn i="keyboard" l="Keyboard shortcuts" on={() => S.toggle("keysOpen", true)} /></>),

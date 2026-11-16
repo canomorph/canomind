@@ -4,7 +4,7 @@ import { open as openDlg, save as saveDlg } from "@tauri-apps/plugin-dialog";
 import JSZip from "jszip";
 import { renderToStaticMarkup } from "react-dom/server";
 import { t } from "./i18n";
-import { Doc, bounds, gridPatternSvg, listLines, lum } from "./model";
+import { Doc, bounds, gridPatternSvg, listLines, lum, pageOf } from "./model";
 import { exportMM, exportVsdx, exportXMind, importMM, importVsdx, importXMind } from "./formats";
 import { buildPdf } from "./pdf";
 import { DocBody } from "./render";
@@ -13,7 +13,7 @@ import { autoPage } from "./templates";
 
 export interface Box { x: number; y: number; w: number; h: number }
 export interface SaveOpts { view: "map" | "list"; area: "all" | "visible"; grid: boolean }
-export const FORMATS = [{ id: "canomind", name: "CanoMind (.canomind)" }, { id: "png", name: "PNG (.png)" }, { id: "jpg", name: "JPEG (.jpg)" }, { id: "svg", name: "SVG (.svg)" }, { id: "pdf", name: "PDF (.pdf)" }, { id: "md", name: "Markdown (.md)" }, { id: "json", name: "JSON (.json)" }, { id: "xmind", name: "XMind (.xmind)" }, { id: "mm", name: "FreeMind (.mm)" }, { id: "vsdx", name: "Visio (.vsdx)" }];
+export const FORMATS = [{ id: "canomind", name: "CanoMind (.canomind)" }, { id: "png", name: "PNG (.png)" }, { id: "jpg", name: "JPEG (.jpg)" }, { id: "pdf", name: "PDF (.pdf)" }, { id: "svg", name: "SVG (.svg)" }, { id: "md", name: "Markdown (.md)" }, { id: "json", name: "JSON (.json)" }, { id: "xmind", name: "XMind (.xmind)" }, { id: "mm", name: "FreeMind (.mm)" }, { id: "vsdx", name: "Visio (.vsdx)" }];
 
 export const EXPORT_ORDER: [string, string][] = [["canomind", "CanoMind"], ["mm", "FreeMind"], ["xmind", "XMind"], ["vsdx", "Visio"], ["pdf", "PDF"], ["md", "Markdown"], ["png", "PNG"], ["jpg", "JPG"], ["svg", "SVG"], ["json", "JSON"]];
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -83,9 +83,11 @@ export async function confirmSaveAs(fmt: string, o: SaveOpts) {
     await writeOut(base(tb0), fmt, fmt.toUpperCase(), data);
   } catch (e) { alert(String(e)); }
 }
-export function printSheet(tb: Tab) {
-  const s = document.createElement("div"); s.className = "print-sheet"; s.innerHTML = svgString(tb.doc, "#ffffff"); document.body.appendChild(s);
-  const done = () => { s.remove(); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); print();
+export function printSheet(tb: Tab) { // prints the whole page (A4 etc.), with no browser header/footer
+  const pg = pageOf(tb.doc), s = document.createElement("div"), st = document.createElement("style"); s.className = "print-sheet"; s.innerHTML = svgString(tb.doc, "#ffffff");
+  st.textContent = `@page{size:${pg.w}px ${pg.h}px;margin:0}@media print{html,body{margin:0!important;background:#fff!important}.print-sheet{display:block!important;position:fixed;left:0;top:0;width:100vw;height:100vh}.print-sheet svg{width:100%;height:100%}}`;
+  document.head.appendChild(st); document.body.appendChild(s);
+  const done = () => { s.remove(); st.remove(); removeEventListener("afterprint", done); }; addEventListener("afterprint", done); print();
 }
 
 // ----- closing with unsaved changes -----

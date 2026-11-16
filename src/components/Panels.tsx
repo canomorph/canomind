@@ -1,6 +1,7 @@
 import { Fragment, ReactNode, useState } from "react";
 import { CHART_COLORS } from "../prims";
 import { t } from "../i18n";
+import { pageOf } from "../model";
 import { curTab, Theme, useDocs, useSettings } from "../store";
 import { FORMATS, cancelSave, closeChoice, confirmSaveAs, openLink } from "../io";
 import { TEMPLATES } from "../templates";
@@ -23,15 +24,27 @@ export function CommentList() {
   </div>;
 }
 export function Settings() {
-  const s = useSettings(), { settingsOpen, toggle } = useDocs();
-  if (!settingsOpen) return null;
+  const s = useSettings(), D = useDocs(), { settingsOpen, toggle } = D; if (!settingsOpen) return null;
+  const so = s.spellOpts, setSo = (q: Partial<typeof so>) => s.set({ spellOpts: { ...so, ...q } });
+  const chk = (label: string, v: boolean, on: (b: boolean) => void, dis = false) => <label className="chk"><input type="checkbox" disabled={dis} checked={v} onChange={(e) => on(e.target.checked)} />{t(label)}</label>;
   return (
     <div className="modal" onClick={() => toggle("settingsOpen", false)}>
-      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="dialog settings" onClick={(e) => e.stopPropagation()}>
         <div className="phead"><b>{t("settings.title")}</b><button className="iconbtn" onClick={() => toggle("settingsOpen", false)}><Icon name="close" size={14} /></button></div>
-        <label>{t("settings.theme")}<select value={s.theme} onChange={(e) => s.set({ theme: e.target.value as Theme })}>{(["system", "light", "sepia", "dark", "black"] as Theme[]).map((v) => <option key={v} value={v}>{t("theme." + v)}</option>)}</select></label>
-        <label>{t("settings.scale")}<select value={s.scale} onChange={(e) => s.set({ scale: +e.target.value })}>{[50, 75, 100, 125, 150].map((v) => <option key={v} value={v}>{v}%</option>)}</select></label>
-        <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" })}><option value="en">English</option><option value="tr">Türkçe</option></select></label>
+        <fieldset className="sgroup"><legend>{t("General")}</legend>
+          <label>{t("settings.theme")}<select value={s.theme} onChange={(e) => s.set({ theme: e.target.value as Theme })}>{(["system", "light", "sepia", "dark", "black"] as Theme[]).map((v) => <option key={v} value={v}>{t("theme." + v)}</option>)}</select></label>
+          <label>{t("settings.scale")}<select value={s.scale} onChange={(e) => s.set({ scale: +e.target.value })}>{[50, 75, 100, 125, 150].map((v) => <option key={v} value={v}>{v}%</option>)}</select></label>
+          <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" })}><option value="en">English</option><option value="tr">Türkçe</option></select></label>
+          <label>{t("Pressing Enter while editing text")}<select value={s.enterMode} onChange={(e) => s.set({ enterMode: e.target.value as "newline" | "finish" })}><option value="finish">{t("Finishes editing")}</option><option value="newline">{t("Inserts a new line")}</option></select></label>
+        </fieldset>
+        <fieldset className="sgroup"><legend>{t("Spelling and grammar")}</legend>
+          {chk("Check spelling as you type", D.spell, () => D.toggle("spell"))}
+          {chk("Ignore words in UPPERCASE", so.upper, (b) => setSo({ upper: b }), !D.spell)}
+          {chk("Check grammar as you type", so.grammar, (b) => setSo({ grammar: b }))}
+          {chk("Capitalize first letter of sentences", so.caps, (b) => setSo({ caps: b }), !so.grammar)}
+          {chk("Flag repeated words", so.dup, (b) => setSo({ dup: b }), !so.grammar)}
+          {chk("Check spacing and punctuation", so.punct, (b) => setSo({ punct: b }), !so.grammar)}
+        </fieldset>
       </div>
     </div>
   );
@@ -53,13 +66,13 @@ export function AboutModal() {
     <div className="modal" onClick={() => S.toggle("aboutOpen", false)}>
       <div className="dialog about" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
         <button className="iconbtn mclose" onClick={() => S.toggle("aboutOpen", false)}><Icon name="close" size={14} /></button>
-        <div>{t("about.dev")} Canomorph Creative</div><b>Canomind</b><div>{t("about.ver")} 0.4.0</div>
+        <div>{t("about.dev")} Canomorph Creative</div><b>Canomind</b><div>{t("about.ver")} 0.9.0</div>
       </div>
     </div>
   );
 }
 const KEYS: [string, string][] = [["Ctrl+N", "New"], ["Ctrl+O", "Open"], ["Ctrl+S", "Save"], ["Ctrl+Shift+S", "Save As"], ["Ctrl+Z", "Undo"], ["Ctrl+Y", "Redo"], ["Ctrl+C", "Copy"], ["Ctrl+X", "Cut"], ["Ctrl+V", "Paste"], ["Ctrl+D", "Duplicate"], ["Ctrl+A", "Select all"],
-  ["Delete", "Delete"], ["Tab", "Add subtopic"], ["Enter", "Add sibling"], ["F2", "Edit text"], ["Double-click", "Edit text"], ["Right-click", "Context menu"], ["Shift+Click", "Multi-select"], ["Ctrl+Wheel", "Zoom"], ["Arrows keys", "Move selection"], ["Shift+Arrows keys", "Move selection by 10"], ["F5", "Presentation"], ["Drag", "Select"], ["Shift+Wheel", "Pan horizontally"], ["Alt+Drag", "Pan"], ["Middle button", "Pan"], ["Esc", "Cancel"]];
+  ["Shift+A", "Select All Connectors"], ["Delete", "Delete"], ["Tab", "Add subtopic"], ["Enter", "Add sibling"], ["F2", "Edit text"], ["Double-click", "Edit text"], ["Right-click", "Context menu"], ["Shift+Click", "Multi-select"], ["Ctrl+Wheel", "Zoom"], ["Arrows keys", "Move selection"], ["Shift+Arrows keys", "Move selection by 10"], ["F5", "Presentation"], ["Drag", "Select"], ["Shift+Wheel", "Pan horizontally"], ["Alt+Drag", "Pan"], ["Middle button", "Pan"], ["Esc", "Cancel"]];
 const KT = ["Double-click", "Right-click", "Click", "Wheel", "Arrows keys", "Drag", "Middle button"];
 export function KeysModal() {
   const S = useDocs(); if (!S.keysOpen) return null;
@@ -87,7 +100,7 @@ function SaveAsInner({ fmt0 }: { fmt0: string }) {
         <div className="phead"><b>{t("Save As")}</b><button className="iconbtn" onClick={cancelSave}><Icon name="close" size={14} /></button></div>
         <label>{t("File format")}<select value={fmt} onChange={(e) => setFmt(e.target.value)}>{FORMATS.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
         <div className="swrow"><span>{t("View")}</span><Seg dis={!img} val={eff} on={setView} opts={[["map", "Mind map"], ["list", "List"]]} /></div>
-        <div className="swrow"><span>{t("Area")}</span><Seg dis={!canMap} val={canMap ? area : "all"} on={setArea} opts={[["visible", "Visible area"], ["all", "Entire work"]]} /></div>
+        <div className="swrow"><span>{t("Area")}</span><Seg dis={!canMap} val={canMap ? area : "all"} on={setArea} opts={[["visible", "Visible area"], ["all", "Entire page"]]} /></div>
         <div className="swrow"><span>{t("Grid")}</span><button disabled={!canGrid} className={"tgl" + (canGrid && grid ? " on" : "")} onClick={() => setGrid(!grid)}><Icon name="grid" size={16} /> {canGrid && grid ? t("On") : t("Off")}</button></div>
         <div className="dfoot"><button className="dbtn" onClick={cancelSave}>{t("Cancel")}</button><button className="dbtn pri" onClick={() => confirmSaveAs(fmt, { view: eff === "list" ? "list" : "map", area: canMap && area === "visible" ? "visible" : "all", grid: canGrid && grid })}>{t("Save")}</button></div>
       </div>
@@ -172,6 +185,25 @@ export function LinkWarn() {
         <code className="lurl">{url}</code>
         <p style={{ margin: 0, opacity: 0.8 }}>{t("link.hint")}</p>
         <div className="dfoot"><button className="dbtn pri" onClick={() => { close(); openLink(url); }}>{t("Open link")}</button><button className="dbtn" onClick={close}>{t("Cancel")}</button></div>
+      </div>
+    </div>
+  );
+}
+
+export function SizeDialog() { const S = useDocs(); return S.sizeDlg ? <SizeInner /> : null; }
+function SizeInner() {
+  const S = useDocs(), pg = pageOf(curTab(S).doc), [unit, setUnit] = useState<"mm" | "px">("mm");
+  const conv = (px: number, u: "mm" | "px") => (u === "mm" ? +((px / 96) * 25.4).toFixed(1) : Math.round(px)), toPx = (v: number, u: "mm" | "px") => (u === "mm" ? (v / 25.4) * 96 : v);
+  const [w, setW] = useState(conv(pg.w, "mm")), [h, setH] = useState(conv(pg.h, "mm")), close = () => S.toggle("sizeDlg", false);
+  const switchUnit = (u: "mm" | "px") => { if (u === unit) return; const pw = toPx(w, unit), ph = toPx(h, unit); setUnit(u); setW(conv(pw, u)); setH(conv(ph, u)); };
+  return (
+    <div className="modal" onClick={close}>
+      <div className="dialog" onClick={stop}>
+        <div className="phead"><b>{t("Custom size")}</b><button className="iconbtn" onClick={close}><Icon name="close" size={14} /></button></div>
+        <div className="swrow"><span>{t("Unit")}</span><Seg val={unit} on={(v) => switchUnit(v as "mm" | "px")} opts={[["mm", "mm"], ["px", "px"]]} /></div>
+        <div className="swrow"><span>{t("Width")}</span><input type="number" min={1} step={unit === "mm" ? 0.1 : 1} value={w} onChange={(e) => setW(+e.target.value)} /></div>
+        <div className="swrow"><span>{t("Height")}</span><input type="number" min={1} step={unit === "mm" ? 0.1 : 1} value={h} onChange={(e) => setH(+e.target.value)} /></div>
+        <div className="dfoot"><button className="dbtn pri" onClick={() => { S.setPageExact(toPx(w, unit), toPx(h, unit)); close(); }}>{t("Apply")}</button><button className="dbtn" onClick={close}>{t("Cancel")}</button></div>
       </div>
     </div>
   );

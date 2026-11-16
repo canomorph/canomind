@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { t as tr } from "./i18n";
-import { DEFAULT_QS, DEFAULT_SCHEMES, GREEN_QS, SwStyle } from "./swatches";
-import { BgImg, Conn, Doc, Item, Kind, autoLayout, defSize, emptyDoc, growToFit, mkItem, pageOf, uid, wrap } from "./model";
+import { DEFAULT_QS, DEFAULT_SCHEMES, SwStyle } from "./swatches";
+import { DEFAULT_SPELL_OPTS, SpellOpts } from "./spell";
+import { BgImg, Conn, Doc, Item, Kind, autoLayout, defSize, emptyDoc, Fmt, TStyle, applyRuns, baseStyle, growToFit, mkItem, pageOf, shiftRuns, styleAt, stripRuns, uid } from "./model";
 
 export type Theme = "light" | "sepia" | "dark" | "black" | "system";
-interface Settings { theme: Theme; scale: number; lang: "en" | "tr"; spellLang: string; grid: boolean; snap: boolean; ruler: boolean; quickStyles: SwStyle[]; schemes: SwStyle[]; rulerMarks: string[]; tableDef: { r: number; c: number; fill: string; stroke: string } | null; tableRemember: boolean; set: (p: Partial<Omit<Settings, "set">>) => void }
-export const useSettings = create<Settings>()(persist((set) => ({ theme: "system", scale: 100, lang: "en", spellLang: "en-US", grid: true, snap: true, ruler: false, quickStyles: DEFAULT_QS, schemes: DEFAULT_SCHEMES, rulerMarks: ["A4"], tableDef: null, tableRemember: false, set: (p) => set(p) }), { name: "canomind-settings-v2", version: 4, migrate: (p: any, v: number) => { const o = { ...p }; if (v < 3) { o.grid = true; o.ruler = false; } if (v < 4 && Array.isArray(o.quickStyles)) o.quickStyles = o.quickStyles.map((q: any) => GREEN_QS[q.id] ?? q); return o; } }));
+interface Settings { theme: Theme; scale: number; lang: "en" | "tr"; spellLang: string; grid: boolean; snap: boolean; ruler: boolean; quickStyles: SwStyle[]; schemes: SwStyle[]; rulerMarks: string[]; tableDef: { r: number; c: number; fill: string; stroke: string } | null; tableRemember: boolean; enterMode: "newline" | "finish"; spellOpts: SpellOpts; set: (p: Partial<Omit<Settings, "set">>) => void }
+export const useSettings = create<Settings>()(persist((set) => ({ theme: "system", scale: 100, lang: "en", spellLang: "en-US", grid: true, snap: true, ruler: false, quickStyles: DEFAULT_QS, schemes: DEFAULT_SCHEMES, rulerMarks: ["A4"], tableDef: null, tableRemember: false, enterMode: "finish", spellOpts: DEFAULT_SPELL_OPTS, set: (p) => set(p) }), { name: "canomind-settings-v2", version: 5, migrate: (p: any, v: number) => { const o = { ...p }; if (v < 3) { o.grid = true; o.ruler = false; } if (v < 5) o.quickStyles = [...DEFAULT_QS, ...(Array.isArray(o.quickStyles) ? o.quickStyles.filter((q: any) => !String(q.id).startsWith("qs")) : [])]; return o; } }));
 
 export type Pane = "none" | "shapes" | "nav";
 export type Tool = "select" | "connect" | { place: Kind };
@@ -15,13 +16,14 @@ export interface View { x: number; y: number; k: number }
 export interface PageData { id: string; name: string; doc: Doc; past: Doc[]; future: Doc[]; view: View; color?: string }
 export type EditSub = { k: "note" } | { k: "cell"; r: number; c: number } | null;
 export interface Tab { id: string; name: string; doc: Doc; past: Doc[]; future: Doc[]; comments: Comment[]; view: View; pages: PageData[]; page: number; path?: string; grid: boolean; gridType: string; dirty: boolean }
-type Flag = "tableDlg" | "chartDlg" | "aboutOpen" | "keysOpen" | "commentsOpen" | "settingsOpen" | "templatesOpen" | "spell";
+type Flag = "sizeDlg" | "tableDlg" | "chartDlg" | "aboutOpen" | "keysOpen" | "commentsOpen" | "settingsOpen" | "templatesOpen" | "spell";
 
 interface S {
   tabs: Tab[]; active: string; sel: string[]; tool: Tool; editing: string | null; clip: Doc | null; connStyle: Conn["style"];
   start: boolean; booting: boolean; ctx: { x: number; y: number; id: string | null } | null; commentTarget: string | null; aboutOpen: boolean; keysOpen: boolean;
   setCtx: (c: { x: number; y: number; id: string | null } | null) => void; setCommentTarget: (id: string | null) => void; setFile: (path: string, name: string) => void; addAtCenter: (k: Kind) => void;
-  focus: boolean; saveDlg: { fmt: string } | null; fresh: boolean; closeAsk: { tabId: string; mode: "tab" | "quit" } | null; linkAsk: string | null; tableDlg: boolean; chartDlg: boolean; chartEdit: string | null; bgEdit: boolean; bgSel: string | null; editSub: EditSub; imgTarget: string | null; bgDelMode: boolean; bgMarks: string[];
+  focus: boolean; saveDlg: { fmt: string } | null; fresh: boolean; closeAsk: { tabId: string; mode: "tab" | "quit" } | null; linkAsk: string | null; tableDlg: boolean; chartDlg: boolean; chartEdit: string | null; bgEdit: boolean; bgSel: string | null; editSub: EditSub; imgTarget: string | null; bgDelMode: boolean; bgMarks: string[]; sizeDlg: boolean; selRange: { s: number; e: number } | null;
+  setSelRange: (r: { s: number; e: number } | null) => void; fmt: (p: Fmt) => void; fmtToggle: (k: "b" | "i" | "u" | "k") => void; curStyle: () => TStyle; setPageExact: (w: number, h: number) => void;
   setGridType: (g: string) => void; setPageSize: (w: number, h: number) => void; setOrientation: (landscape: boolean) => void; expandPage: (dir: "r" | "b") => void; ganttAdd: () => void; ganttDel: () => void;
   setStart: (v: boolean) => void; moveTab: (a: number, b: number) => void; setPageColor: (i: number, c?: string) => void; addMain: (near: string) => void; attachImage: (id: string, src: string, aspect: number) => void; addNote: (id: string) => void; setNote: (id: string, text: string) => void;
   addTable: (r: number, c: number, fill?: string, stroke?: string) => void; addChart: (type: string) => void; setCell: (id: string, r: number, c: number, text: string) => void; bgColor: (c?: string) => void; bgAdd: (src: string, w: number, h: number) => void; bgPatch: (id: string, p: Partial<BgImg>, rec?: boolean) => void; bgDel: () => void; fonts: string[]; setFocus: (v: boolean) => void; setFonts: (f: string[]) => void; setGrid: (v: boolean) => void;
@@ -37,7 +39,7 @@ interface S {
   addChild: (pid: string, dir?: "r" | "l" | "t" | "b", edit?: boolean, styleFrom?: string) => void; addSibling: (id: string, edit?: boolean) => void; connect: (a: string, b: string) => void;
   remove: (ids: string[]) => void; patch: (ids: string[], p: Partial<Item>, rec?: boolean) => void; patchConns: (ids: string[], p: Partial<Conn>) => void;
   z: (front: boolean) => void; undo: () => void; redo: () => void; copy: () => void; cut: () => void; paste: () => void; duplicate: () => void; selectAll: () => void;
-  layout: () => void; palette: (fill: string, stroke: string, color?: string) => void;
+  layout: (mode?: "h" | "v") => void; palette: (fill: string, stroke: string, color?: string) => void;
   newTab: (name?: string, doc?: Doc, path?: string, grid?: boolean) => void; closeTab: (id: string) => void; setActive: (id: string) => void;
 
   addComment: (text: string, itemId?: string) => void; delComment: (id: string) => void; fit: (margin?: number) => void; zoom100: () => void; ganttRowAdd: () => void; ganttRowDel: () => void; todoAdd: () => void; todoDel: () => void; zoom: (f: number) => void; nudge: (dx: number, dy: number) => void;
@@ -57,9 +59,11 @@ let lk = "", lt = 0, n = 1;
 const subPath = (d: Doc, id: string): number[] => { const out: number[] = []; let cur = id, g = 0; const cs = Object.values(d.conns);
   while (g++ < 100) { const c = cs.find((k) => k.to === cur); if (!c) break; out.unshift(cs.filter((k) => k.from === c.from).findIndex((k) => k.id === c.id) + 1); cur = c.from; } return out; };
 const styleOf = (p: Item): Partial<Item> => (p.kind === "text" || p.kind === "image" ? {} : { fill: p.fill, stroke: p.stroke, sw: p.sw, color: p.color, ff: p.ff, fs: p.fs, bold: p.bold, italic: p.italic, dash: p.dash, shadow: p.shadow, ul: p.ul, st: p.st });
+const toItemPatch = (p: Fmt): Partial<Item> => { const o: Partial<Item> = {}; if (p.b !== undefined) o.bold = p.b; if (p.i !== undefined) o.italic = p.i; if (p.u !== undefined) o.ul = p.u; if (p.k !== undefined) o.st = p.k; if (p.c !== undefined) o.color = p.c; if (p.z !== undefined) o.fs = p.z; if (p.f !== undefined) o.ff = p.f; return o; };
+const DEF_STYLE: TStyle = { b: false, i: false, u: false, k: false, c: "#1a1a1a", z: 16, f: "Calibri" };
 export const useDocs = create<S>((set, get) => ({
   tabs: [first], active: first.id, sel: [], tool: "select", editing: null, clip: null, connStyle: "curve",
-  focus: false, saveDlg: null, fresh: true, closeAsk: null, linkAsk: null, tableDlg: false, chartDlg: false, chartEdit: null, bgEdit: false, bgSel: null, editSub: null, imgTarget: null, bgDelMode: false, bgMarks: [], fonts: [],
+  focus: false, saveDlg: null, fresh: true, closeAsk: null, linkAsk: null, tableDlg: false, chartDlg: false, chartEdit: null, bgEdit: false, bgSel: null, editSub: null, imgTarget: null, bgDelMode: false, bgMarks: [], sizeDlg: false, selRange: null, fonts: [],
   setFocus: (v) => { set({ focus: v }); try { v ? document.documentElement.requestFullscreen?.() : document.fullscreenElement && document.exitFullscreen(); } catch {} if (v) setTimeout(() => get().fit(12), 250); },
   setFonts: (fonts) => set({ fonts }), setGrid: (v) => set((s) => upd(s, (tb) => ({ ...tb, grid: v }))),
   start: true, booting: true, ctx: null, commentTarget: null, aboutOpen: false, keysOpen: false,
@@ -75,7 +79,7 @@ export const useDocs = create<S>((set, get) => ({
   setPresent: (v) => { set({ present: v }); try { v ? document.documentElement.requestFullscreen?.() : document.fullscreenElement && document.exitFullscreen(); } catch {} },
   setTool: (tool) => set({ tool }), setSel: (sel) => set({ sel }), setEditing: (editing, sub = null) => { const s = get(), prev = s.editing;
     if (prev && s.editSub?.k === "note" && !(editing === prev && sub?.k === "note")) { const it = curTab(s).doc.items[prev]; if (it && it.note !== undefined && !it.note.trim()) get().patch([prev], { note: undefined, nh: 0, h: it.h - (it.nh ?? 0) }, true); }
-    set({ editing, editSub: editing ? sub : null }); }, setConnStyle: (connStyle) => set({ connStyle }),
+    set({ editing, editSub: editing ? sub : null, selRange: null }); }, setConnStyle: (connStyle) => set({ connStyle }),
   setView: (view) => set((s) => { const p = pageOf(curTab(s).doc), m = 60, cl = (v: number, size: number, len: number) => (len + 2 * m <= size ? (size - len) / 2 : Math.min(m, Math.max(size - len - m, v)));
     return upd(s, (t) => ({ ...t, view: { k: view.k, x: cl(view.x, s.size.w, p.w * view.k), y: cl(view.y, s.size.h, p.h * view.k) } })); }),
   mutate: (fn, rec = true) => set((s) => { const t = curTab(s); const d: Doc = { items: { ...t.doc.items }, conns: { ...t.doc.conns }, order: [...t.doc.order], bg: t.doc.bg, page: t.doc.page }; fn(d); { const pg = pageOf(d); for (const id in d.items) { const it = d.items[id], x = Math.min(Math.max(0, it.x), Math.max(0, pg.w - it.w)), y = Math.min(Math.max(0, it.y), Math.max(0, pg.h - it.h)); if (x !== it.x || y !== it.y) d.items[id] = { ...it, x, y }; } }
@@ -96,7 +100,7 @@ export const useDocs = create<S>((set, get) => ({
   remove: (ids) => { if (!ids.length) return; get().mutate((d) => { ids.forEach((i) => { delete d.items[i]; delete d.conns[i]; }); d.order = d.order.filter((i) => d.items[i]);
     Object.values(d.conns).forEach((c) => { if (!d.items[c.from] || !d.items[c.to]) delete d.conns[c.id]; }); }); set({ sel: [], editing: null }); },
   patch: (ids, p, rec) => { const key = ids.join() + Object.keys(p).join(), now = Date.now(); const r = rec ?? (key !== lk || now - lt > 900); lk = key; lt = now;
-    const grow = Object.keys(p).some((k) => ["text", "note", "fs", "ff", "bold", "italic", "img", "ih", "bul", "bt", "ind", "kind"].includes(k));
+    const grow = Object.keys(p).some((k) => ["text", "note", "fs", "ff", "bold", "italic", "img", "ih", "bul", "bt", "ind", "kind", "runs", "nruns", "ns"].includes(k));
     get().mutate((d) => { ids.forEach((i) => { if (d.items[i]) { let it = { ...d.items[i], ...p }; if (grow) it = { ...it, ...growToFit(it) }; d.items[i] = it; } }); }, r); },
   patchConns: (ids, p) => { if (p.style) set({ connStyle: p.style }); const cs = ids.filter((i) => curTab(get()).doc.conns[i]); if (!cs.length) return;
     get().mutate((d) => { cs.forEach((i) => (d.conns[i] = { ...d.conns[i], ...p })); }); },
@@ -111,7 +115,7 @@ export const useDocs = create<S>((set, get) => ({
       Object.values(c.conns).forEach((k) => { const id = uid(); d.conns[id] = { ...k, id, from: map[k.from], to: map[k.to] }; }); }); set({ sel: Object.values(map) }); },
   duplicate: () => { get().copy(); get().paste(); },
   selectAll: () => set((s) => ({ sel: curTab(s).doc.order })),
-  layout: () => get().mutate((d) => { d.items = autoLayout(d).items; }),
+  layout: (mode = "h") => get().mutate((d) => { d.items = autoLayout(d, mode).items; }),
   palette: (fill, stroke, color) => { const s = get(), d = curTab(s).doc; const ids = (s.sel.length ? s.sel : d.order).filter((i) => d.items[i] && d.items[i].kind !== "text" && d.items[i].kind !== "image"); get().patch(ids, color ? { fill, stroke, color } : { fill, stroke }, true); },
   newTab: (name, doc, path, grid) => { const tb = mkTab(name ?? (get().fresh ? `${tr("Untitled")} 1` : `${tr("Untitled")} ${++n}`), doc, undefined, path, grid); set((s) => addTab(s, tb)); setTimeout(() => get().zoom100(), 80); },
   openPages: (name, pgs, path, grid) => { const tb = mkTab(name, undefined, pgs, path, grid); set((s) => addTab(s, tb)); setTimeout(() => get().zoom100(), 80); },
@@ -145,7 +149,7 @@ export const useDocs = create<S>((set, get) => ({
     set({ sel: [it.id], editing: null, editSub: null }); },
   attachImage: (id, src, aspect) => { const it = curTab(get()).doc.items[id]; if (!it) return; const nih = Math.round(Math.min(160, Math.max(50, (it.w - 16) * aspect)) + 12); get().patch([id], { img: src, ih: nih, h: it.h - (it.ih ?? 0) + nih }, true); },
   addNote: (id) => { const it = curTab(get()).doc.items[id]; if (!it) return; if (it.note === undefined) get().patch([id], { note: "", nh: 34, h: it.h + 34 }, true); set({ sel: [id] }); get().setEditing(id, { k: "note" }); },
-  setNote: (id, text) => { if (curTab(get()).doc.items[id]) get().patch([id], { note: text }); },
+  setNote: (id, text) => { const it = curTab(get()).doc.items[id]; if (it) get().patch([id], { note: text, nruns: shiftRuns(it.nruns, it.note ?? "", text) }); },
   addTable: (r, c, fill = "#ffffff", stroke = "#079a4a") => { const s = get(), v = curTab(s).view, w = c * 100, h = r * 36, x = Math.round(((s.size.w / 2 - v.x) / v.k - w / 2) / 10) * 10, y = Math.round(((s.size.h / 2 - v.y) / v.k - h / 2) / 10) * 10;
     const cells = Array.from({ length: r }, () => Array.from({ length: c }, () => "")); const id = s.addItem("table", x, y, w, h, "", { tbl: { r, c, cells }, fill, stroke, fs: 14 }); set({ sel: [id], tableDlg: false }); },
   addChart: (type) => { const s = get(), v = curTab(s).view, w = 380, h = 260, x = Math.round(((s.size.w / 2 - v.x) / v.k - w / 2) / 10) * 10, y = Math.round(((s.size.h / 2 - v.y) / v.k - h / 2) / 10) * 10, pie = type === "pie" || type === "donut";
@@ -185,6 +189,19 @@ export const useDocs = create<S>((set, get) => ({
     get().mutate((m) => { const it: Item = { ...last, id: uid(), y: last.y + last.h + 10, text: tr("New task"), done: false }; m.items[it.id] = it; m.order.push(it.id); const p = pageOf(m), bottom = it.y + it.h + 40; if (bottom > p.h) m.page = { w: p.w, h: Math.ceil(bottom) }; }); },
   todoDel: () => { const todos = Object.values(curTab(get()).doc.items).filter((i) => i.kind === "todo"); if (todos.length < 2) return; const last = todos.reduce((a, b) => (b.y > a.y ? b : a));
     get().mutate((m) => { delete m.items[last.id]; m.order = m.order.filter((id) => m.items[id]); Object.values(m.conns).forEach((c) => { if (!m.items[c.from] || !m.items[c.to]) delete m.conns[c.id]; }); }); },
+  setSelRange: (selRange) => set({ selRange }),
+  setPageExact: (w, h) => { get().mutate((d) => { d.page = { w: Math.max(100, Math.round(w)), h: Math.max(100, Math.round(h)) }; }); setTimeout(() => get().fit(), 30); },
+  curStyle: () => { const s = get(), d = curTab(s).doc, ed = s.editing ? d.items[s.editing] : null, it = ed ?? s.sel.map((i) => d.items[i]).find(Boolean); if (!it) return DEF_STYLE;
+    const note = !!ed && s.editSub?.k === "note", base = baseStyle(it, note ? "note" : "text"), r = s.selRange, text = note ? it.note ?? "" : it.text;
+    return ed && r && r.e > r.s && !(r.s === 0 && r.e >= text.length) && (!s.editSub || note) ? styleAt(base, note ? it.nruns : it.runs, r.s) : base; },
+  fmtToggle: (k) => { const v = !get().curStyle()[k]; get().fmt(k === "b" ? { b: v } : k === "i" ? { i: v } : k === "u" ? { u: v } : { k: v }); },
+  fmt: (p) => { const s = get(), d = curTab(s).doc, ids = s.sel.filter((i) => d.items[i]), ed = s.editing ? d.items[s.editing] : null, r = s.selRange, note = s.editSub?.k === "note";
+    if (ed && (!s.editSub || note)) { const text = note ? ed.note ?? "" : ed.text;
+      if (r && r.e > r.s && !(r.s === 0 && r.e >= text.length)) { const nr = applyRuns(note ? ed.nruns : ed.runs, r.s, r.e, p, text.length, baseStyle(ed, note ? "note" : "text")); get().patch([ed.id], note ? { nruns: nr } : { runs: nr }); return; }
+      if (note) { get().patch([ed.id], { ns: { ...(ed.ns ?? {}), ...p } }); return; } }
+    if (!ids.length) return;
+    if (ids.some((i) => d.items[i].runs)) get().mutate((m) => ids.forEach((i) => { let n: Item = { ...m.items[i], ...toItemPatch(p) }; n = { ...n, runs: stripRuns(n.runs, p) }; m.items[i] = { ...n, ...growToFit(n) }; }));
+    else get().patch(ids, toItemPatch(p)); },
   addComment: (text, itemId) => set((s) => upd(s, (t) => ({ ...t, dirty: true, comments: [...t.comments, { id: uid(), text, at: Date.now(), itemId }] }))),
   delComment: (id) => set((s) => upd(s, (t) => ({ ...t, comments: t.comments.filter((c) => c.id !== id) }))),
   fit: (margin) => { const mg = typeof margin === "number" ? margin : 80; const el = document.querySelector(".canvas") as HTMLElement | null; if (!el) return; const p = pageOf(curTab(get()).doc), W = el.clientWidth, H = el.clientHeight, k = Math.min(2, Math.max(0.1, Math.min((W - mg) / p.w, (H - mg) / p.h)));

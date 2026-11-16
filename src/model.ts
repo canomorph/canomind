@@ -2,7 +2,7 @@ import { textW } from "./measure";
 import { t as tr } from "./i18n";
 export type Kind = "rect"|"square"|"round"|"ellipse"|"circle"|"diamond"|"triangle"|"rtriangle"|"rotri"|"parallelogram"|"trapezoid"|"hexagon"|"heptagon"|"octagon"|"decagon"|"pentagon"|"star"|"star4"|"cylinder"|"cloud"|"arrow"|"larrow"|"uarrow"|"darrow"|"dblarrow"|"chevron"|"cross"|"cube"|"drop"|"semicircle"|"semiellipse"|"cone"|"invcone"|"pyramid"|"pointedoval"|"funnel"|"gear"|"document"|"terminator"|"callout"|"note"|"text"|"image"|"table"|"chart"|"notepad"|"todo";
 export const GALLERY: Kind[] = ["rect","round","ellipse","diamond","triangle","parallelogram","hexagon","pentagon","star","cylinder","cloud","arrow","cross","document","terminator","callout"];
-export interface Item { id:string; kind:Kind; x:number; y:number; w:number; h:number; text:string; fill:string; stroke:string; sw:number; color:string; fs:number; bold:boolean; italic:boolean; dash:boolean; src?:string; ff?:string; ul?:boolean; st?:boolean; ha?:"left"|"center"|"right"; va?:"top"|"middle"|"bottom"; bul?:boolean; ind?:number; shadow?:boolean; lock?:boolean; g?:string; tbl?:{r:number;c:number;cells:string[][]}; chart?:{type:string;cats:string[];series:{name:string;vals:number[]}[]}; img?:string; ih?:number; note?:string; nh?:number; fo?:number; so?:number; done?:boolean; bt?:string; gt?:{k:string;c?:number;r?:number;s?:number} }
+export interface Item { id:string; kind:Kind; x:number; y:number; w:number; h:number; text:string; fill:string; stroke:string; sw:number; color:string; fs:number; bold:boolean; italic:boolean; dash:boolean; src?:string; ff?:string; ul?:boolean; st?:boolean; ha?:"left"|"center"|"right"; va?:"top"|"middle"|"bottom"; bul?:boolean; ind?:number; shadow?:boolean; lock?:boolean; g?:string; tbl?:{r:number;c:number;cells:string[][]}; chart?:{type:string;cats:string[];series:{name:string;vals:number[]}[]}; img?:string; ih?:number; note?:string; nh?:number; fo?:number; so?:number; done?:boolean; bt?:string; runs?:Run[]; nruns?:Run[]; ns?:Fmt; gt?:{k:string;c?:number;r?:number;s?:number} }
 export interface Conn { id:string; from:string; to:string; style:"curve"|"straight"|"elbow"; arrow:boolean; dash:boolean; color:string }
 export interface BgImg { id: string; src: string; x: number; y: number; w: number; h: number }
 export interface Doc { items:Record<string,Item>; conns:Record<string,Conn>; order:string[]; bg?: { color?: string; imgs: BgImg[] }; page?: { w: number; h: number } }
@@ -83,13 +83,12 @@ export const pageOf = (d: Doc) => d.page ?? A4L;
 // Grows a box (width and height by the same factor) until its text and note fit inside.
 export function growToFit(it: Item): Partial<Item> {
   if (["image", "table", "chart", "notepad"].includes(it.kind)) return {};
-  let w = it.w, hm = it.h - (it.nh ?? 0), nh = it.nh ?? 0; const nh0 = nh, ih = it.ih ?? 0, left = it.kind === "todo" ? 34 : 0, ind = (it.ind ?? 0) * 14, lh = it.fs * 1.25, nfs = Math.max(10, it.fs * .8), ff = it.ff ?? "Calibri";
-  const raw = bulletize(it);
+  let w = it.w, hm = it.h - (it.nh ?? 0), nh = it.nh ?? 0; const nh0 = nh, ih = it.ih ?? 0, left = it.kind === "todo" ? 34 : 0, ind = (it.ind ?? 0) * 14, bs = baseStyle(it, "text"), ns = baseStyle(it, "note");
   for (let k = 0; k < 8; k++) {
-    const lines = wrap(raw, w - ind - left, it.fs, ff, it.bold, it.italic), nl = it.note !== undefined ? wrap(it.note, w - 16, nfs, ff) : [];
-    const maxLine = Math.max(0, ...lines.map((l) => textW(l, it.fs, ff, it.bold, it.italic))), maxNote = Math.max(0, ...nl.map((l) => textW(l, nfs, ff)));
-    nh = it.note !== undefined ? Math.max(34, Math.round(nl.length * nfs * 1.25 + 16)) : 0;
-    const f = Math.max(1, Math.max(maxLine + ind + left + 20, maxNote + 32) / w, (ih + lines.length * lh + 16) / hm);
+    const lines = layoutText(it.text, it.runs, bs, w - ind - left - 16, (pi) => bulletPrefix(it, pi)), nl = it.note !== undefined ? layoutText(it.note, it.nruns, ns, w - 32) : [];
+    const maxLine = Math.max(0, ...lines.map((l) => l.w)), maxNote = Math.max(0, ...nl.map((l) => l.w)), th = lines.reduce((a, l) => a + l.h, 0), nth = nl.reduce((a, l) => a + l.h, 0);
+    nh = it.note !== undefined ? Math.max(34, Math.round(nth + 16)) : 0;
+    const f = Math.max(1, Math.max(maxLine + ind + left + 20, maxNote + 32) / w, (ih + th + 16) / hm);
     if (f <= 1.0001) break; w = Math.ceil(w * f); hm = Math.ceil(hm * f);
   }
   const h = hm + nh; if (w === it.w && h === it.h && nh === nh0) return {};
@@ -108,19 +107,32 @@ export function connPath(a: Item, b: Item, style: Conn["style"]) {
 }
 
 // Tree layout to the right for every connected tree.
-export function autoLayout(d: Doc): Doc {
-  const kids: Record<string,string[]> = {}, hasP = new Set<string>();
+// Tree auto layout that keeps every tree where it is (top-left corner is preserved). "h": root left, children right. "v": root on top, children below.
+export function autoLayout(d: Doc, mode: "h" | "v" = "h"): Doc {
+  const kids: Record<string, string[]> = {}, hasP = new Set<string>();
   Object.values(d.conns).forEach((c) => { if (d.items[c.from] && d.items[c.to]) { (kids[c.from] ||= []).push(c.to); hasP.add(c.to); } });
-  const roots = d.order.filter((id) => kids[id] && !hasP.has(id));
-  if (!roots.length) return d;
-  const items = { ...d.items }, seen = new Set<string>(); let y = items[roots[0]].y;
-  const place = (id: string, x: number): number => {
-    seen.add(id); const it = items[id], ch = (kids[id] || []).filter((c) => !seen.has(c));
-    if (!ch.length) { const cy = y + it.h/2; y += it.h + 24; items[id] = { ...it, x, y: cy - it.h/2 }; return cy; }
-    const cs = ch.map((c) => place(c, x + it.w + 80)), cy = (cs[0] + cs[cs.length-1]) / 2;
-    items[id] = { ...it, x, y: cy - it.h/2 }; return cy;
-  };
-  roots.forEach((r) => { place(r, items[r].x); y += 30; });
+  const roots = d.order.filter((id) => kids[id] && !hasP.has(id)); if (!roots.length) return d;
+  const items = { ...d.items }, seen = new Set<string>();
+  for (const r of roots) {
+    if (seen.has(r)) continue;
+    const tk: Record<string, string[]> = {}, ids: string[] = [], build = (id: string) => { seen.add(id); ids.push(id); tk[id] = []; for (const c of kids[id] || []) if (!seen.has(c)) { tk[id].push(c); build(c); } };
+    build(r);
+    const ox = Math.min(...ids.map((i) => d.items[i].x)), oy = Math.min(...ids.map((i) => d.items[i].y)), local: Record<string, { x: number; y: number }> = {};
+    if (mode === "h") {
+      let y = 0; const place = (id: string, x: number): number => { const it = d.items[id], ch = tk[id];
+        if (!ch.length) { const cy = y + it.h / 2; y += it.h + 24; local[id] = { x, y: cy - it.h / 2 }; return cy; }
+        const cs = ch.map((c) => place(c, x + it.w + 80)), cy = (cs[0] + cs[cs.length - 1]) / 2; local[id] = { x, y: cy - it.h / 2 }; return cy; };
+      place(r, 0);
+    } else {
+      const W: Record<string, number> = {}, sw = (id: string): number => { const ch = tk[id], tot = ch.reduce((a, c) => a + sw(c), 0) + 30 * Math.max(0, ch.length - 1); return (W[id] = Math.max(d.items[id].w, tot)); };
+      sw(r);
+      const place = (id: string, left: number, y: number) => { const it = d.items[id], ch = tk[id], tot = ch.reduce((a, c) => a + W[c], 0) + 30 * Math.max(0, ch.length - 1); local[id] = { x: left + W[id] / 2 - it.w / 2, y };
+        let cl = left + (W[id] - tot) / 2; ch.forEach((c) => { place(c, cl, y + it.h + 60); cl += W[c] + 30; }); };
+      place(r, 0, 0);
+    }
+    const nx = Math.min(...ids.map((i) => local[i].x)), ny = Math.min(...ids.map((i) => local[i].y));
+    ids.forEach((i) => { items[i] = { ...items[i], x: local[i].x - nx + ox, y: local[i].y - ny + oy }; });
+  }
   return { ...d, items };
 }
 
@@ -171,7 +183,66 @@ export function gridPatternSvg(type: string, c: string) {
 
 const roman = (n: number) => { let r = ""; for (const [v, s] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as [number, string][]) while (n >= v) { r += s; n -= v; } return r; };
 export const BULLETS: [string, string][] = [["none", "None"], ["dot", "•  Bullet"], ["circle", "○  Circle"], ["square", "▪  Square"], ["dash", "–  Dash"], ["num", "1. 2. 3."], ["alpha", "a. b. c."], ["ALPHA", "A. B. C."], ["roman", "i. ii. iii."]];
-export function bulletize(it: Item): string {
-  const k = it.bt ?? (it.bul ? "dot" : "none"); if (k === "none") return it.text;
-  return it.text.split("\n").map((l, i) => { const n = i + 1; return (k === "dot" ? "• " : k === "circle" ? "○ " : k === "square" ? "▪ " : k === "dash" ? "– " : k === "num" ? `${n}. ` : k === "alpha" ? `${String.fromCharCode(97 + ((n - 1) % 26))}. ` : k === "ALPHA" ? `${String.fromCharCode(65 + ((n - 1) % 26))}. ` : `${roman(n)}. `) + l; }).join("\n");
+export function bulletPrefix(it: Item, i: number): string {
+  const k = it.bt ?? (it.bul ? "dot" : "none"); if (k === "none") return ""; const n = i + 1;
+  return k === "dot" ? "• " : k === "circle" ? "○ " : k === "square" ? "▪ " : k === "dash" ? "– " : k === "num" ? `${n}. ` : k === "alpha" ? `${String.fromCharCode(97 + ((n - 1) % 26))}. ` : k === "ALPHA" ? `${String.fromCharCode(65 + ((n - 1) % 26))}. ` : `${roman(n)}. `;
+}
+export const bulletize = (it: Item) => it.text.split("\n").map((l, i) => bulletPrefix(it, i) + l).join("\n");
+
+// ---------- rich text: formatting runs over a text, laid out line by line ----------
+export interface Fmt { b?: boolean; i?: boolean; u?: boolean; k?: boolean; c?: string; z?: number; f?: string }
+export interface Run extends Fmt { s: number; e: number }
+export interface TStyle { b: boolean; i: boolean; u: boolean; k: boolean; c: string; z: number; f: string }
+export const baseStyle = (it: Item, field: "text" | "note"): TStyle => field === "text"
+  ? { b: !!it.bold, i: !!it.italic, u: !!it.ul, k: !!it.st || (it.kind === "todo" && !!it.done), c: it.color, z: it.fs, f: it.ff ?? "Calibri" }
+  : { b: it.ns?.b ?? false, i: it.ns?.i ?? false, u: it.ns?.u ?? false, k: it.ns?.k ?? false, c: it.ns?.c ?? it.color, z: it.ns?.z ?? Math.max(8, it.fs - 2), f: it.ns?.f ?? it.ff ?? "Calibri" };
+export const styleAt = (base: TStyle, runs: Run[] | undefined, idx: number): TStyle => { const r = runs?.find((x) => idx >= x.s && idx < x.e); return r ? { b: r.b ?? base.b, i: r.i ?? base.i, u: r.u ?? base.u, k: r.k ?? base.k, c: r.c ?? base.c, z: r.z ?? base.z, f: r.f ?? base.f } : base; };
+export interface Seg { s: number; e: number; st: TStyle }
+export interface LLine { segs: Seg[]; prefix: string; w: number; h: number; start: number; end: number }
+export function splitSegs(s: number, e: number, base: TStyle, runs?: Run[]): Seg[] {
+  const cuts = new Set<number>([s, e]); runs?.forEach((r) => { if (r.s > s && r.s < e) cuts.add(r.s); if (r.e > s && r.e < e) cuts.add(r.e); });
+  const pts = Array.from(cuts).sort((a, b) => a - b), out: Seg[] = []; for (let k = 0; k + 1 < pts.length; k++) out.push({ s: pts[k], e: pts[k + 1], st: styleAt(base, runs, pts[k]) }); return out;
+}
+export const rangeW = (text: string, s: number, e: number, base: TStyle, runs?: Run[]) => splitSegs(s, e, base, runs).reduce((w, g) => w + textW(text.slice(g.s, g.e), g.st.z, g.st.f, g.st.b, g.st.i), 0);
+export function layoutText(text: string, runs: Run[] | undefined, base: TStyle, maxW: number, prefixOf?: (pi: number) => string): LLine[] {
+  const lines: LLine[] = []; let off = 0; const SPW = textW(" ", base.z, base.f, base.b, base.i);
+  text.split("\n").forEach((para, pi) => {
+    const prefix = prefixOf ? prefixOf(pi) : "", pw = prefix ? textW(prefix, base.z, base.f, base.b, base.i) : 0, words = para.split(" ");
+    let ls = off, cw = pw, first = true, started = false, le = off, pos = off;
+    const push = (end: number, w: number) => { const segs = splitSegs(ls, end, base, runs); lines.push({ segs, prefix: first ? prefix : "", w, h: Math.max(base.z, ...segs.map((g) => g.st.z)) * 1.25, start: ls, end }); first = false; };
+    for (let wi = 0; wi < words.length; wi++) {
+      const word = words[wi], ws = pos, we = pos + word.length, sp = wi > 0 ? SPW : 0, ww = word ? rangeW(text, ws, we, base, runs) : 0;
+      if (started && cw + sp + ww > maxW) { push(le, cw); ls = ws; cw = ww; le = we; } else { cw += sp + ww; started = true; le = we; }
+      pos = we + 1;
+    }
+    push(le, cw); off += para.length + 1;
+  });
+  return lines;
+}
+const sameFmt = (a: Fmt, b: Fmt) => (["b", "i", "u", "k", "c", "z", "f"] as (keyof Fmt)[]).every((k) => a[k] === b[k]);
+export function applyRuns(runs: Run[] | undefined, s: number, e: number, p: Fmt, len: number, base: TStyle): Run[] {
+  const cur = runs ?? [], cuts = new Set<number>([0, len, Math.min(s, len), Math.min(e, len)]); cur.forEach((r) => { cuts.add(Math.max(0, Math.min(len, r.s))); cuts.add(Math.max(0, Math.min(len, r.e))); });
+  const pts = Array.from(cuts).sort((a, b) => a - b), out: Run[] = [];
+  for (let k = 0; k + 1 < pts.length; k++) {
+    const a = pts[k], b = pts[k + 1]; if (b <= a) continue; const old = cur.find((r) => a >= r.s && a < r.e); let f: Fmt = old ? { b: old.b, i: old.i, u: old.u, k: old.k, c: old.c, z: old.z, f: old.f } : {};
+    if (a >= s && b <= e) f = { ...f, ...p }; const clean: Fmt = {};
+    (Object.keys(f) as (keyof Fmt)[]).forEach((key) => { if (f[key] !== undefined && f[key] !== (base as any)[key]) (clean as any)[key] = f[key]; });
+    if (Object.keys(clean).length) { const prev = out[out.length - 1]; if (prev && prev.e === a && sameFmt(prev, clean)) prev.e = b; else out.push({ s: a, e: b, ...clean }); }
+  }
+  return out;
+}
+export function stripRuns(runs: Run[] | undefined, p: Fmt): Run[] | undefined {
+  if (!runs) return runs; const keys = Object.keys(p) as (keyof Fmt)[];
+  return runs.map((r) => { const c: any = { ...r }; keys.forEach((k) => delete c[k]); return c as Run; }).filter((r) => (["b", "i", "u", "k", "c", "z", "f"] as (keyof Fmt)[]).some((k) => r[k] !== undefined));
+}
+// keeps formatting runs attached to the right characters when the text is edited
+export function shiftRuns(runs: Run[] | undefined, oldT: string, newT: string): Run[] | undefined {
+  if (!runs || !runs.length) return runs; let p = 0; const ol = oldT.length, nl = newT.length; while (p < ol && p < nl && oldT[p] === newT[p]) p++;
+  let q = 0; while (q < ol - p && q < nl - p && oldT[ol - 1 - q] === newT[nl - 1 - q]) q++;
+  const removed = ol - p - q, ins = nl - p - q, delta = nl - ol, out: Run[] = [];
+  runs.forEach((r) => { let s = r.s, e = r.e;
+    if (e <= p) { /* before the edit */ } else if (s >= p + removed && !(removed === 0 && s === p && false)) { s += delta; e += delta; }
+    else { s = s < p ? s : p; e = e > p + removed ? e + delta : p + ins; }
+    if (e > s) out.push({ ...r, s, e }); });
+  return out;
 }

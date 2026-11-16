@@ -13,7 +13,7 @@ import { NavPane } from "./components/NavPane";
 import { StartScreen } from "./components/StartScreen";
 import { ContextMenu } from "./components/ContextMenu";
 import { Presenter } from "./components/Presenter";
-import { AboutModal, ChartDialog, ChartEditor, CloseAsk, CommentList, Drawer, KeysModal, LinkWarn, SaveAsDialog, Settings, TableDialog, TemplateGallery } from "./components/Panels";
+import { AboutModal, ChartDialog, ChartEditor, CloseAsk, CommentList, Drawer, KeysModal, LinkWarn, SaveAsDialog, Settings, SizeDialog, TableDialog, TemplateGallery } from "./components/Panels";
 import { StatusBar } from "./components/StatusBar";
 
 function calcMin(scale: number) {
@@ -58,6 +58,7 @@ export default function App() {
       else if (c && k === "c") s.copy(); else if (c && k === "x") s.cut(); else if (c && k === "v") s.paste();
       else if (c && k === "d") { e.preventDefault(); s.duplicate(); }
       else if (c && k === "a") { e.preventDefault(); s.selectAll(); }
+      else if (e.shiftKey && !c && k === "a") { e.preventDefault(); s.selectConns(); }
       else if (k === "delete" || k === "backspace") s.remove(sel);
       else if (k === "tab") { e.preventDefault(); if (sel[0] && curTab(s).doc.items[sel[0]]) s.addChild(sel[0]); }
       else if (k === "enter") { e.preventDefault(); if (sel[0] && curTab(s).doc.items[sel[0]]) s.addSibling(sel[0]); }
@@ -98,6 +99,7 @@ export default function App() {
       <ContextMenu />
       <SaveAsDialog />
       <TableDialog />
+      <SizeDialog />
       <ChartDialog />
       <ChartEditor />
       <CloseAsk />

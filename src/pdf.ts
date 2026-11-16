@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { Doc, Item, Kind, bounds, bulletize, connEnds, connPath, listLines, lum, readable, shapePath, wrap } from "./model";
+import { Doc, Item, Kind, LLine, TStyle, baseStyle, bounds, bulletPrefix, layoutText, connEnds, connPath, listLines, lum, readable, shapePath, wrap } from "./model";
 import { Prim, chartPrims, tablePrims } from "./prims";
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -54,16 +54,23 @@ async function drawItem(pdf: PDFDocument, page: PDFPage, it: Item, ox: number, o
     page.drawLine({ start: { x: ox + 30, y: oy }, end: { x: ox + 30, y: oy - it.h }, thickness: 0.6, color: rgbOf("#e57373") });
     wrap(it.text, it.w - 44, it.fs, it.ff ?? "Calibri", it.bold, it.italic).forEach((l, i) => drawLine(page, font, l, ox + 38, oy - (8 + (i + 1) * lh - 5), it.fs, col, deco)); return;
   }
-  const ha = it.ha ?? "center", va = it.va ?? "middle", ind = (it.ind ?? 0) * 14, ih = it.ih ?? 0, nh = it.nh ?? 0, lh = it.fs * 1.25, left = it.kind === "todo" ? 34 : 0, done = it.kind === "todo" && !!it.done;
-  const raw = bulletize(it), lines = wrap(raw, it.w - ind - left, it.fs, it.ff ?? "Calibri", it.bold, it.italic), n = lines.length, top = ih, bottom = it.h - nh;
-  const y0 = va === "top" ? top + 8 + lh / 2 : va === "bottom" ? bottom - 8 - (n - 1) * lh - lh / 2 : (top + bottom) / 2 - ((n - 1) * lh) / 2;
+  const ha = it.ha ?? "center", va = it.va ?? "middle", ind = (it.ind ?? 0) * 14, ih = it.ih ?? 0, nh = it.nh ?? 0, left = it.kind === "todo" ? 34 : 0, done = it.kind === "todo" && !!it.done;
+  const bs = baseStyle(it, "text"), ns = baseStyle(it, "note"), lines = layoutText(it.text, it.runs, bs, it.w - ind - left - 16, (pi) => bulletPrefix(it, pi)), th = lines.reduce((a, l) => a + l.h, 0), top = ih, bottom = it.h - nh;
+  const drawRich = async (ln: LLine, text: string, startX: number, cy: number, base: TStyle, baseCol: string, strike: boolean) => {
+    let cx = startX; const bl = oy - cy - (ln.h / 1.25) * 0.33;
+    const put = async (str: string, st: TStyle, color: string, link: boolean) => { if (!str) return; const f = await getFont(pdf, st.f, st.b, st.i, cache), s2 = safe(f, str), w = f.widthOfTextAtSize(s2, st.z);
+      page.drawText(s2, { x: cx, y: bl, size: st.z, font: f, color: rgbOf(color) }); if (link || st.u) page.drawLine({ start: { x: cx, y: bl - 1.5 }, end: { x: cx + w, y: bl - 1.5 }, thickness: 0.7, color: rgbOf(color) });
+      if (st.k || strike) page.drawLine({ start: { x: cx, y: bl + st.z * 0.3 }, end: { x: cx + w, y: bl + st.z * 0.3 }, thickness: 0.7, color: rgbOf(color) }); cx += w; };
+    if (ln.prefix) await put(ln.prefix, base, baseCol, false);
+    for (const g of ln.segs) for (const [k, part] of text.slice(g.s, g.e).split(URL_RE).entries()) await put(part, g.st, k % 2 === 1 ? "#4da3ff" : g.st.c === base.c ? baseCol : g.st.c, k % 2 === 1);
+  };
   if (it.kind === "todo") { page.drawRectangle({ x: ox + 9, y: oy - it.h / 2 - 9, width: 18, height: 18, color: rgb(1, 1, 1), borderColor: rgbOf(it.stroke), borderWidth: 2 }); if (done) { page.drawLine({ start: { x: ox + 13, y: oy - it.h / 2 }, end: { x: ox + 17, y: oy - it.h / 2 - 4 }, thickness: 2.5, color: rgbOf("#07a352") }); page.drawLine({ start: { x: ox + 17, y: oy - it.h / 2 - 4 }, end: { x: ox + 24, y: oy - it.h / 2 + 4 }, thickness: 2.5, color: rgbOf("#07a352") }); } }
   if (it.img && ih > 0) { const img = await embedImg(pdf, it.img); if (img) { const aw = it.w - 16, ah = ih - 12, k = Math.min(aw / img.width, ah / img.height), sw = img.width * k, sh = img.height * k;
     page.drawImage(img, { x: ox + 8 + (aw - sw) / 2, y: oy - (6 + (ah - sh) / 2) - sh, width: sw, height: sh }); } }
-  lines.forEach((l, i) => { const wd = font.widthOfTextAtSize(safe(font, l), it.fs), x = ha === "left" ? ox + 8 + left + ind : ha === "right" ? ox + it.w - 8 - wd : ox + left + (it.w - left) / 2 + ind / 2 - wd / 2;
-    drawLine(page, font, l, x, oy - (y0 + i * lh) - it.fs * 0.33, it.fs, col, { ul: it.ul, st: it.st || done }); });
+  let y = va === "top" ? top + 8 : va === "bottom" ? bottom - 8 - th : (top + bottom) / 2 - th / 2;
+  for (const ln of lines) { const cy = y + ln.h / 2; y += ln.h; const sx = ha === "left" ? ox + 8 + left + ind : ha === "right" ? ox + it.w - 8 - ln.w : ox + left + (it.w - left) / 2 + ind / 2 - ln.w / 2; await drawRich(ln, it.text, sx, cy, bs, col, done); }
   if (nh > 0) { page.drawLine({ start: { x: ox + 8, y: oy - (it.h - nh) }, end: { x: ox + it.w - 8, y: oy - (it.h - nh) }, thickness: 0.6, color: rgbOf(col), opacity: 0.35 });
-    const nfs = Math.max(10, it.fs * 0.8); wrap(it.note ?? "", it.w - 16, nfs, it.ff ?? "Calibri").forEach((l, i) => { const wd = font.widthOfTextAtSize(safe(font, l), nfs); drawLine(page, font, l, ox + it.w / 2 - wd / 2, oy - (it.h - nh + 8 + nfs * 0.65 + i * nfs * 1.25) - nfs * 0.33, nfs, col, {}); }); }
+    const nl = layoutText(it.note ?? "", it.nruns, ns, it.w - 32), ncol = ns.c === it.color ? col : ns.c; let ny = it.h - nh + 8; for (const ln of nl) { const cy = ny + ln.h / 2; ny += ln.h; await drawRich(ln, it.note ?? "", ox + it.w / 2 - ln.w / 2, cy, ns, ncol, false); } }
 }
 async function listPdf(pdf: PDFDocument, d: Doc, cache: Cache) {
   const font = await getFont(pdf, "Calibri", false, false, cache), bold = await getFont(pdf, "Calibri", true, false, cache), PW = 595, PH = 842, M = 50, LH = 20, size = 12;

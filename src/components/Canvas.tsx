@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Kind, defSize, gridPatternSvg, growToFit, lum, pageOf } from "../model";
+import { Kind, baseStyle, defSize, gridPatternSvg, growToFit, layoutText, lum, pageOf, shiftRuns } from "../model";
 import { ConnView, Defs, ItemView } from "../render";
 import { curTab, useDocs, useIsDark, useSettings } from "../store";
 import { Checker, loadSpell } from "../spell";
@@ -14,9 +14,9 @@ const rectFrom = (o: R, h: string, w: { x: number; y: number }, f: (v: number) =
 };
 export function Canvas() {
   const tab = useDocs((s) => curTab(s)), sel = useDocs((s) => s.sel), tool = useDocs((s) => s.tool), editing = useDocs((s) => s.editing), editSub = useDocs((s) => s.editSub), bgEdit = useDocs((s) => s.bgEdit), bgSel = useDocs((s) => s.bgSel), spell = useDocs((s) => s.spell);
-  const { snap, spellLang } = useSettings(), themeDark = useIsDark(), { doc, view } = tab, grid = tab.grid, A = useDocs.getState, pg = pageOf(doc), bgDelMode = useDocs((s) => s.bgDelMode), bgMarks = useDocs((s) => s.bgMarks);
+  const { snap, spellLang, spellOpts, enterMode } = useSettings(), themeDark = useIsDark(), { doc, view } = tab, grid = tab.grid, A = useDocs.getState, pg = pageOf(doc), bgDelMode = useDocs((s) => s.bgDelMode), bgMarks = useDocs((s) => s.bgMarks);
   const bgc = doc.bg?.color, dark = bgc ? lum(bgc) < 0.45 : themeDark, bgImgs = doc.bg?.imgs ?? [];
-  const root = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), drag = useRef<any>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null), root = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), drag = useRef<any>(null);
   const [ghost, setGhost] = useState<any>(null), [line, setLine] = useState<any>(null), [edge, setEdge] = useState<{ d: "r" | "b"; x: number; y: number } | null>(null), [gh, setGh] = useState(false), [gv, setGv] = useState(false), [tv, setTv] = useState(false), [sp, setSp] = useState<{ sp: Checker; lang: string } | null>(null);
   useEffect(() => { let alive = true; setSp(null); if (spell) loadSpell(spellLang).then((ck) => { if (alive && ck) setSp({ sp: ck, lang: spellLang }); }); return () => { alive = false; }; }, [spell, spellLang]);
   const heads = Object.values(doc.items).filter((i) => i.gt?.k === "head"), lastHead = heads.length ? heads.reduce((a, b) => (b.gt!.c! > a.gt!.c! ? b : a)) : null;
@@ -126,8 +126,11 @@ export function Canvas() {
   if (ed) {
     if (editSub?.k === "cell" && ed.tbl) { const cw = ed.w / ed.tbl.c, rh = ed.h / ed.tbl.r, rr = editSub.r, cc = editSub.c; er = { x: ed.x + cc * cw, y: ed.y + rr * rh, w: cw, h: rh }; val = ed.tbl.cells[rr]?.[cc] ?? ""; onChange = (v) => A().setCell(ed.id, rr, cc, v); }
     else if (editSub?.k === "note") { er = { x: ed.x, y: ed.y + ed.h - (ed.nh ?? 34), w: ed.w, h: ed.nh ?? 34 }; val = ed.note ?? ""; onChange = (v) => A().setNote(ed.id, v); }
-    else { er = { x: ed.x, y: ed.y + (ed.ih ?? 0), w: ed.w, h: Math.max(24, ed.h - (ed.ih ?? 0) - (ed.nh ?? 0)) }; val = ed.text; onChange = (v) => A().patch([ed.id], { text: v }); }
+    else { er = { x: ed.x, y: ed.y + (ed.ih ?? 0), w: ed.w, h: Math.max(24, ed.h - (ed.ih ?? 0) - (ed.nh ?? 0)) }; val = ed.text; onChange = (v) => A().patch([ed.id], { text: v, runs: shiftRuns(ed.runs, ed.text, v) }); }
   }
+  const edBase = ed ? baseStyle(ed, editSub?.k === "note" ? "note" : "text") : baseStyle({ fs: 16 } as any, "text"), edTh = ed && er ? layoutText(val, undefined, edBase, Math.max(20, er.w - 28)).reduce((a, l) => a + l.h, 0) : 0, edPad = er ? Math.max(4, (er.h - edTh) / 2 - 3) : 4;
+  useEffect(() => { const t = taRef.current; if (t) { t.focus(); t.select(); } }, [editing, JSON.stringify(editSub)]);
+  useEffect(() => { const t = taRef.current, r = A().selRange; if (t && r && r.e > r.s) { t.focus(); t.setSelectionRange(r.s, r.e); } }, [ed?.runs, ed?.nruns, ed?.ns]);
   return (
     <div ref={root} className={"canvas" + (tool !== "select" || useDocs.getState().painter ? " tool" : "")} onDragOver={(e) => e.preventDefault()} onDrop={drop} onContextMenu={ctxm}>
       <svg ref={svg} width="100%" height="100%" onPointerDown={down} onPointerMove={move} onPointerUp={up} onDoubleClick={dbl} onPointerLeave={() => { setEdge(null); setGh(false); setGv(false); setTv(false); }} onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}>
@@ -141,7 +144,7 @@ export function Canvas() {
           {bgEdit && bgImgs.map((im) => <rect key={"f" + im.id} x={im.x} y={im.y} width={im.w} height={im.h} fill="none" stroke="var(--accent)" strokeWidth={(im.id === bgSel ? 2 : 1) / k} strokeDasharray={`${5 / k}`} pointerEvents="none" />)}
           {selBg && HP.map(([n, fx, fy]) => <rect key={"b" + n} data-bgh={n} x={selBg.x + selBg.w * fx - hs / 2} y={selBg.y + selBg.h * fy - hs / 2} width={hs} height={hs} fill="#fff" stroke="var(--accent)" strokeWidth={1 / k} style={{ cursor: n + "-resize" }} />)}
           {Object.values(doc.conns).map((c) => doc.items[c.from] && doc.items[c.to] && <ConnView key={c.id} c={c} a={doc.items[c.from]} b={doc.items[c.to]} sel={sel.includes(c.id)} />)}
-          {doc.order.map((i) => doc.items[i] && <ItemView key={i} it={doc.items[i]} hide={i === editing ? (editSub?.k === "note" ? "note" : editSub?.k === "cell" ? undefined : "text") : undefined} dark={dark} spell={sp} />)}
+          {doc.order.map((i) => doc.items[i] && <ItemView key={i} it={doc.items[i]} hide={i === editing ? (editSub?.k === "note" ? "note" : editSub?.k === "cell" ? undefined : "text") : undefined} dark={dark} spell={sp ? { ...sp, opts: spellOpts } : null} />)}
           {Array.from(new Set(tab.comments.map((cm) => cm.itemId).filter((x) => x && doc.items[x as string]))).map((id) => { const it = doc.items[id as string]; return <g key={"cm" + id} transform={`translate(${it.x + it.w - 4},${it.y - 4})`} pointerEvents="none"><circle r="9" fill="#ffb300" /><text y="4" textAnchor="middle" fontSize="11" fill="#000">✎</text></g>; })}
           {items.map((it) => <rect key={"s" + it.id} x={it.x - 3} y={it.y - 3} width={it.w + 6} height={it.h + 6} fill="none" stroke="var(--accent)" strokeWidth={1.5 / k} strokeDasharray={`${4 / k}`} pointerEvents="none" />)}
           {one && HP.map(([n, fx, fy]) => <rect key={n} data-handle={n} x={one.x + one.w * fx - hs / 2} y={one.y + one.h * fy - hs / 2} width={hs} height={hs} fill="#fff" stroke="var(--accent)" strokeWidth={1 / k} style={{ cursor: n + "-resize" }} />)}
@@ -165,9 +168,10 @@ export function Canvas() {
           {edge && <g pointerEvents="none"><circle cx={edge.d === "r" ? pg.w : Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k)} cy={edge.d === "b" ? pg.h : Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k)} r={20 / k} fill="#0DF279" />
             <path d={edge.d === "r" ? `M${pg.w - 9 / k},${Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k)}h${18 / k}M${pg.w},${Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k) - 9 / k}v${18 / k}` : `M${Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k) - 9 / k},${pg.h}h${18 / k}M${Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k)},${pg.h - 9 / k}v${18 / k}`} stroke="#064" strokeWidth={4 / k} strokeLinecap="round" /></g>}
           {ed && er && <foreignObject x={er.x} y={er.y} width={er.w} height={er.h}>
-            <textarea autoFocus spellCheck={spell} lang={spellLang} value={val} onFocus={(e) => e.currentTarget.select()} onChange={(e) => onChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) A().setEditing(null); }}
-              style={{ width: "100%", height: "100%", boxSizing: "border-box", resize: "none", border: "2px dashed var(--accent)", background: "var(--bg)", color: "var(--fg)", fontSize: editSub?.k === "note" ? Math.max(10, ed.fs * .8) : ed.fs, fontWeight: ed.bold ? 700 : 400, fontStyle: ed.italic ? "italic" : "normal", textAlign: (ed.kind === "notepad" ? "left" : ed.ha ?? "center") as any, fontFamily: ed.ff ?? "Calibri", padding: (editSub?.k === "note" ? 4 : Math.max(4, (er.h - ed.fs * 1.4) / 2)) + "px 6px 4px", outline: "none" }} />
+            <textarea ref={taRef} autoFocus spellCheck={spell} lang={spellLang} value={val} onChange={(e) => onChange(e.target.value)}
+              onSelect={(e) => { const t = e.currentTarget; A().setSelRange({ s: t.selectionStart, e: t.selectionEnd }); }}
+              onKeyDown={(e) => { const mod = e.ctrlKey || e.metaKey, fin = e.key === "Enter" && (mod || (enterMode === "finish" && !e.shiftKey)); if (e.key === "Escape" || fin) { e.preventDefault(); A().setEditing(null); } }}
+              style={{ width: "100%", height: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "2px dashed var(--accent)", background: "var(--bg)", color: "var(--fg)", fontSize: edBase.z, fontWeight: edBase.b ? 700 : 400, fontStyle: edBase.i ? "italic" : "normal", textAlign: (ed.kind === "notepad" ? "left" : ed.ha ?? "center") as any, fontFamily: edBase.f, padding: `${edPad}px 6px 4px`, outline: "none" }} />
           </foreignObject>}
         </g>
       </svg>

@@ -16,7 +16,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 export async function exportXMind(tb: Tab) {
   const topic = (n: Tree): any => ({ id: uid(), class: "topic", title: n.t, ...(n.c.length ? { children: { attached: n.c.map(topic) } } : {}) });
   const sheets = pagesOf(tb).map((p) => ({ id: uid(), class: "sheet", title: p.name, rootTopic: topic(treeOf(p.doc, p.name)) }));
-  const z = new JSZip(); z.file("content.json", JSON.stringify(sheets)); z.file("metadata.json", JSON.stringify({ creator: { name: "CanoMind", version: "0.4.0" } })); z.file("manifest.json", JSON.stringify({ "file-entries": { "content.json": {}, "metadata.json": {} } }));
+  const z = new JSZip(); z.file("content.json", JSON.stringify(sheets)); z.file("metadata.json", JSON.stringify({ creator: { name: "CanoMind", version: "0.9.0" } })); z.file("manifest.json", JSON.stringify({ "file-entries": { "content.json": {}, "metadata.json": {} } }));
   return z.generateAsync({ type: "uint8array" });
 }
 export async function importXMind(z: JSZip): Promise<{ name: string; doc: Doc }[]> {

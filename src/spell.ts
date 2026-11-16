@@ -29,24 +29,29 @@ export function loadSpell(lang: string): Promise<Checker | null> {
   return cache.get(lang)!;
 }
 const ok = (sp: Checker, lang: string, w: string) => { let m = memo.get(lang); if (!m) memo.set(lang, (m = new Map())); let v = m.get(w); if (v === undefined) { v = sp.correct(w) || sp.correct(w.toLowerCase()); m.set(w, v); } return v; };
+export interface SpellOpts { grammar: boolean; caps: boolean; punct: boolean; dup: boolean; upper: boolean }
+export const DEFAULT_SPELL_OPTS: SpellOpts = { grammar: true, caps: true, punct: true, dup: true, upper: true };
 export interface Issue { i: number; w: string; kind: "spell" | "dup" | "grammar" }
 // Language-independent grammar/typography rules (blue wavy line).
-export function grammar(line: string, first: boolean): Issue[] {
+export function grammar(line: string, first: boolean, o: SpellOpts = DEFAULT_SPELL_OPTS): Issue[] {
+  if (!o.grammar) return [];
   const masked = line.replace(URL_RE, (m) => " ".repeat(m.length)), out: Issue[] = [], add = (i: number, w: string) => out.push({ i, w, kind: "grammar" });
-  for (const m of masked.matchAll(/ {2,}/g)) add(m.index!, m[0]);
-  for (const m of masked.matchAll(/ +[,.;:!?]/g)) add(m.index!, m[0]);
-  for (const m of masked.matchAll(/\p{L}[,;:!?]\p{L}/gu)) add(m.index! + 1, m[0][1]);
-  for (const m of masked.matchAll(/(?<=\p{L}{3})[.!?] +(\p{Ll})/gu)) add(m.index! + m[0].length - 1, m[1]);
-  if (first) { const m = /^[^\p{L}]*(\p{Ll})/u.exec(masked); if (m) add(m[0].length - 1, m[1]); }
+  if (o.punct) {
+    for (const m of masked.matchAll(/ {2,}/g)) add(m.index!, m[0]);
+    for (const m of masked.matchAll(/ +[,.;:!?]/g)) add(m.index!, m[0]);
+    for (const m of masked.matchAll(/\p{L}[,;:!?]\p{L}/gu)) add(m.index! + 1, m[0][1]);
+  }
+  if (o.caps) for (const m of masked.matchAll(/(?<=\p{L}{3})[.!?] +(\p{Ll})/gu)) add(m.index! + m[0].length - 1, m[1]);
+  if (o.caps && first) { const m = /^[^\p{L}]*(\p{Ll})/u.exec(masked); if (m) add(m[0].length - 1, m[1]); }
   return out;
 }
-export function issues(line: string, sp: Checker, lang: string, first = false): Issue[] {
+export function issues(line: string, sp: Checker, lang: string, first = false, o: SpellOpts = DEFAULT_SPELL_OPTS): Issue[] {
   const masked = line.replace(URL_RE, (m) => " ".repeat(m.length)), out: Issue[] = []; let prev = "";
   for (const m of masked.matchAll(/[\p{L}][\p{L}'’]*/gu)) {
     const w = m[0];
-    if (w.length > 1 && !/^[\p{Lu}]{2,}$/u.test(w) && !ok(sp, lang, w.replace(/’/g, "'"))) out.push({ i: m.index!, w, kind: "spell" });
-    else if (prev && prev.toLowerCase() === w.toLowerCase()) out.push({ i: m.index!, w, kind: "dup" });
+    if (w.length > 1 && !(o.upper && /^[\p{Lu}]{2,}$/u.test(w)) && !ok(sp, lang, w.replace(/’/g, "'"))) out.push({ i: m.index!, w, kind: "spell" });
+    else if (o.grammar && o.dup && prev && prev.toLowerCase() === w.toLowerCase()) out.push({ i: m.index!, w, kind: "dup" });
     prev = w;
   }
-  return out.concat(grammar(line, first));
+  return out.concat(grammar(line, first, o));
 }
