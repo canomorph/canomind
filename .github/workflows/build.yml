@@ -1,4 +1,4 @@
-name: Build
+name: macOS Build
 
 on:
   push:
@@ -7,9 +7,27 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
       - name: Kodu indir
         uses: actions/checkout@v4
 
-      - name: Test
-        run: echo "Merhaba, macOS derleme çalışıyor!"   
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rust kur
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Bağımlılıkları yükle
+        run: npm install
+
+      - name: Tauri build
+        run: npm run tauri build   
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: src-tauri/target/release/bundle/
