@@ -1,16 +1,19 @@
+
 # CanoMind
 
-**Mind map, diagrams, gantt chart, timeline and more; an alternative open-source software for Xmind, Visio and other paid mind map softwares, completely offline editor.** Shapes, connectors, topics, relationships, data binding, color schemes, and real support for `.vsdx` / `.xmind` files. Open source, offline, and yours.
+**A lightweight, cross-platform open source, offline, mind map and diagram editor.**
+
+Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 
 `100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.4.0`
 
 ---
-Screenshots
-<img width="1282" height="802" alt="Canomind 0 4 0 screenshot" src="https://github.com/user-attachments/assets/bbac6ff8-42f1-4276-9bc4-08c2a30501b7" />
-<img width="1282" height="802" alt="Ekran görüntüsü 2026-11-15 175254" src="https://github.com/user-attachments/assets/1981d986-7b21-467e-9969-8b656aa5e569" />
-<img width="1282" height="802" alt="Ekran görüntüsü 2026-11-15 175322" src="https://github.com/user-attachments/assets/e875a5f7-c7fe-4fcd-b9a5-bd1053132f52" />
-<img width="1282" height="802" alt="Ekran görüntüsü 2026-11-15 175351" src="https://github.com/user-attachments/assets/7ca940cd-3963-42fb-8894-e8c9af48995d" />
-<img width="1282" height="802" alt="Ekran görüntüsü 2026-11-15 175415" src="https://github.com/user-attachments/assets/40abae39-f6a4-422a-9ba0-c2353071283c" />
+## Screenshots
+<img width="800" alt="Canomind 0 4 0 screenshot" src="https://github.com/user-attachments/assets/bbac6ff8-42f1-4276-9bc4-08c2a30501b7" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175254" src="https://github.com/user-attachments/assets/1981d986-7b21-467e-9969-8b656aa5e569" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175322" src="https://github.com/user-attachments/assets/e875a5f7-c7fe-4fcd-b9a5-bd1053132f52" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175351" src="https://github.com/user-attachments/assets/7ca940cd-3963-42fb-8894-e8c9af48995d" />
+<img width="400" alt="Ekran görüntüsü 2026-11-15 175415" src="https://github.com/user-attachments/assets/40abae39-f6a4-422a-9ba0-c2353071283c" />
 
 ## 📦 Download
 
@@ -24,79 +27,79 @@ Latest release: **v0.4.0**
 
 ---
 
-## ✨ Features
-
-### 📄 Document & File Management
-
-- **Create, open, save** — supports `.vsdx`, `.xmind`, and a unified native format with atomic writes and local backups.
-- **Export** to Canomind, FreeMind, Xmind, Visio, PDF, PNG, SVG, JPEG, Markdown, JSON.
-- **Advanced raster export** with resolution, background color, transparency, and scale control.
-- **Print** with easy settings.
-- **Autosave** to a local saved file.
-- **Local templates** — save, list, and apply templates.
-- **Schema validation** for file integrity.
-
-### 📑 Page & View Management
-
-- **Add, delete, rename, reorder, duplicate** pages.
-- **Zoom, pan, grid, snap, rulers, guides** — full canvas navigation.
-- **Focus mode** hides distractions; **presentation mode** for full-screen playback.
-- **Dark mode** with system-follow option and white, sepia and black modes.
-
-### 🔷 Diagram Mode (DIAGRAM)
-
-- **Shapes** — add, move, copy, group, align, distribute, lock, layer ordering.
-- **Connectors** — dynamic, straight, and curved; routing, splitting, auto-connect.
-- **Containers** for grouping related shapes.
-- **ShapeSheet** — per-shape data cells with formula support and autocomplete.
-- **Freeform drawing** with adjustable precision and smoothing.
-- **Smart tags**, shape search pane, advanced shape handles.
-
-### 🎨 Style, Formatting & Customization
-
-- **Quick style customization** for fill, line, font, shadow, corner, and arrow styles.
-- **Topic, edge, and shape style** controls.
-- **Drawing background** — solid color or gradient.
-- **Stencil layout** configuration (background, text color, grid).
-- **SVG export format** selection.
-- **Snap strength** per axis for guides and objects.
-
-### ✅ Task & Project Management (MAP)
-
-- **Task status** — to-do, in-progress, done. 
-- **Task dates** — start and due.
-- **Progress percentage** per task.
-- **Task filtering** by status, date, or label.
-
-### 📥 Import
-
-- **CSV**, **Markdown**, **OPML**, **Word (DOCX)**
-- **MindManager**, **FreeMind**, **Lighten**, **MindNode**
-- **TextBundle**
-- **Local images** placed on any page.
-
-### 🖥️ UI & Usability
-
-#### Ribbon & Toolbar
-- Ribbon tab toggle (`Ctrl+F1`), keyboard ribbon access (`Alt+H`), full ribbon customization.
-- **Quick Access Toolbar (QAT)** — customize, reposition, and add commands via right-click.
-
-#### Keyboard Shortcuts & Text Editing
-- Full-screen (`F5`), direct text edit (`F2`), text dialog (`F11`), format pane (`F3`).
-- Tool selection (`Ctrl+1` pointer, `Ctrl+2` text), group (`Ctrl+G`), bring forward (`Ctrl+Shift+F`).
-- **Key Assist panel** listing all shortcuts; full shortcut customization, search, and reset.
-- **Find & Replace** (`Ctrl+F` / `Ctrl+H`).
-- **Presentation mode** launch.
-
-#### Contextual Helpers
-- **Smart guidelines** for alignment feedback.
-- **Floating toolbar** on topic selection.
-- **Add Topic button** on canvas.
-- **Shape search pane**, smart tags, auto-connect, advanced handles, formula autocomplete.
-
+## Overview
+ 
+CanoMind combines the production power of Visio, XMind, MindManager and Gantt tools in a modern, Office-style interface. It is built with [Tauri](https://tauri.app), so it stays small, fast and native on Windows, macOS and Linux.
+ 
+## Features
+ 
+### Create
+- **Mind maps in one click:** select a box and press **+** to add a connected subtopic, or drag the **+** onto another box to link them. Subtopics are numbered automatically (1, 1.1, 1.1.1).
+- **30+ shapes** plus flowchart, arrow and callout sets, drag and drop or click to place.
+- **Tables, charts** (column, bar, line, pie, donut, area), **to-do boxes**, notepads, sticky notes, images and links.
+- **Notes and images inside boxes**, with boxes that grow so nothing overflows.
+- **Templates:** mind map, to-do list, event planner, SWOT, Eisenhower matrix, pros and cons, business model canvas, Kanban, fishbone, flowchart, org chart, Gantt plan and timeline.
+- **Auto layout:** horizontal or vertical (org chart style), applied in place.
+### Edit
+- **Office-style ribbon** that collapses gracefully when the window gets small.
+- **Rich text:** format just the selected words (bold, italic, color, size, font), bullet and numbering styles, system fonts.
+- **Spell and grammar check:** works offline in 35 languages, with Word-like options.
+- Fill, line and opacity controls, quick styles and color schemes you can add to, delete and reorder.
+- Alignment, grouping, locking, format painter, undo and redo, right-click menu.
+### Organize
+- **Multiple files as tabs** and **multiple pages per file**, with page colors.
+- **Page setup:** A and B series, HD to 8K screen sizes or a custom size, portrait or landscape.
+- Rulers with page-size marks, four grid types, background color and background images.
+- **Navigation pane:** your map as an outline, with search.
+- Comments on any box.
+### Present and share
+- **Presentation mode:** one box per slide, with images above and notes below.
+- Full screen mode and print.
+- **Open and import:** `.canomind`, XMind (`.xmind`), FreeMind (`.mm`), Visio (`.vsdx`, basic).
+- **Save and export:** `.canomind`, XMind, FreeMind, Visio, PDF (vector, selectable text), Markdown, PNG, JPG, SVG, JSON.
+### Make it yours
+- Themes: light, sepia, dark and black.
+- Interface languages: English and Turkish. Spell-check language is separate.
+- Adjustable UI scale and configurable Enter-key behavior.
+## Keyboard shortcuts
+ 
+| Action | Shortcut |
+|---|---|
+| New, open, save, save as | `Ctrl+N`, `Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S` |
+| Add subtopic, add sibling | `Tab`, `Enter` |
+| Edit text | `F2` or double-click |
+| Select all boxes, all connectors | `Ctrl+A`, `Shift+A` |
+| Copy, cut, paste, duplicate | `Ctrl+C`, `Ctrl+X`, `Ctrl+V`, `Ctrl+D` |
+| Undo, redo | `Ctrl+Z`, `Ctrl+Y` |
+| Pan | middle mouse, `Alt`+drag, `Shift`+wheel |
+| Zoom | `Ctrl`+wheel |
+| Presentation | `F5` |
+ 
+## Getting started
+ 
+**Requirements:** [Node.js](https://nodejs.org) 18+, [Rust](https://rustup.rs) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system.
+ 
+```bash
+git clone https://github.com/canomorph/canomind.git
+cd canomind
+npm install
+npm run tauri dev      # run in development
+npm run tauri build    # create installers (MSI and NSIS on Windows)
+```
+ 
+`npm install` also fetches the spell-check dictionaries and copies them into `public/dict`.
+ 
+## Tech stack
+ 
+Tauri 2 (Rust) · React · TypeScript · Vite · Zustand · pdf-lib · JSZip · nspell (Hunspell)
+ 
+## Notes
+ 
+- MindManager (`.mmap`) is not supported because there is no public file format specification that permits it.
+- Visio support covers shapes, text and connectors, not full Visio features.
 ---
 
-## 🚀 Getting Started
+## 🚀 Installation
 
 ### Windows (pre-built)
 
