@@ -8,6 +8,7 @@ Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 `100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.9.0`
 
 #### [Türkçe açıklama için tıklayın](https://github.com/canomorph/canomind/blob/main/README.tr.md)
+#### [简体中文说明](README.zh-CN.md)
 
 ---
 ## Screenshots
@@ -63,7 +64,7 @@ CanoMind combines the production power of Visio, XMind, MindManager and Gantt to
 - **Save and export:** `.canomind`, XMind, FreeMind, Visio, PDF (vector, selectable text), Markdown, PNG, JPG, SVG, JSON.
 ### Make it yours
 - Themes: light, sepia, dark and black.
-- Interface languages: English and Turkish. Spell-check language is separate.
+- Interface languages: English, Turkish and Simplified Chinese. Spell-check language is separate.
 - Adjustable UI scale and configurable Enter-key behavior.
 ## Keyboard shortcuts
  
