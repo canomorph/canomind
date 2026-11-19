@@ -33,7 +33,7 @@ export default function App() {
   }, [theme]);
   useEffect(() => { document.documentElement.style.fontSize = `${scale}%`; }, [scale]);
   useEffect(() => { const id = setTimeout(() => calcMin(scale), 300); return () => clearTimeout(id); }, [scale, lang, S.fresh, S.booting]);
-  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useEffect(() => { document.documentElement.lang = lang === "zh" ? "zh-CN" : lang; }, [lang]);
   useEffect(() => { const f = () => { if (!document.fullscreenElement) { const s = useDocs.getState(); s.setPresent(false); s.setFocus(false); } }; document.addEventListener("fullscreenchange", f); return () => document.removeEventListener("fullscreenchange", f); }, []);
   useEffect(() => { // no browser/OS "Back, Reload, Save as…" menu anywhere except in text fields
     const f = (e: MouseEvent) => { if (!["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) e.preventDefault(); };

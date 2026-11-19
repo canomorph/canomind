@@ -34,7 +34,7 @@ export function Settings() {
         <fieldset className="sgroup"><legend>{t("General")}</legend>
           <label>{t("settings.theme")}<select value={s.theme} onChange={(e) => s.set({ theme: e.target.value as Theme })}>{(["system", "light", "sepia", "dark", "black"] as Theme[]).map((v) => <option key={v} value={v}>{t("theme." + v)}</option>)}</select></label>
           <label>{t("settings.scale")}<select value={s.scale} onChange={(e) => s.set({ scale: +e.target.value })}>{[50, 75, 100, 125, 150].map((v) => <option key={v} value={v}>{v}%</option>)}</select></label>
-          <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" })}><option value="en">English</option><option value="tr">Türkçe</option></select></label>
+          <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" | "zh" })}><option value="en">English</option><option value="tr">Türkçe</option><option value="zh">简体中文</option></select></label>
           <label>{t("Pressing Enter while editing text")}<select value={s.enterMode} onChange={(e) => s.set({ enterMode: e.target.value as "newline" | "finish" })}><option value="finish">{t("Finishes editing")}</option><option value="newline">{t("Inserts a new line")}</option></select></label>
         </fieldset>
         <fieldset className="sgroup"><legend>{t("Spelling and grammar")}</legend>
