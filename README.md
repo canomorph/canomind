@@ -21,6 +21,23 @@ Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 
 CanoMind combines the production power of Visio, XMind, MindManager and Gantt tools in a modern, Office-style interface. It is built with [Tauri](https://tauri.app), so it stays small, fast and native on Windows, macOS and Linux.
 
+---
+
+## Download
+
+Pick the installer that matches your operating system. Each release ships with the files below.
+
+| Platform | Architecture | Format | Download |
+|---|---|---|---|
+| Windows | x64 | MSI | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/CanoMind_1.0.0_x64_en-US.msi) |
+| Windows | x64 | NSIS (.exe) | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/CanoMind_1.0.0_x64-setup.exe) |
+| macOS | Not specified | PKG installer | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/canomind-macos.pkg) |
+| macOS | Not specified | TAR.GZ archive | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/canomind-macos.tar.gz) |
+| Linux | x64 | AppImage | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/CanoMind_1.0.0_amd64.AppImage) |
+| Linux | x64 | DEB (Debian, Ubuntu) | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/CanoMind_1.0.0_amd64.deb) |
+| Linux | x64 | RPM (Fedora, openSUSE) | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/CanoMind-1.0.0-1.x86_64.rpm) |
+| Linux | x64 | Arch Linux package (.pkg.tar.zst) | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/canomind-linux-x86_64.pkg.tar.zst) |
+| Linux | x64 | TAR.GZ archive | [Download](https://github.com/canomorph/canomind/releases/download/canomind-1-0-0/canomind-linux-x86_64.tar.gz) |
 
 ---
 ## Screenshots
