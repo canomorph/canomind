@@ -34,7 +34,7 @@ export function Settings() {
         <fieldset className="sgroup"><legend>{t("General")}</legend>
           <label>{t("settings.theme")}<select value={s.theme} onChange={(e) => s.set({ theme: e.target.value as Theme })}>{(["system", "light", "sepia", "dark", "black"] as Theme[]).map((v) => <option key={v} value={v}>{t("theme." + v)}</option>)}</select></label>
           <label>{t("settings.scale")}<select value={s.scale} onChange={(e) => s.set({ scale: +e.target.value })}>{[50, 75, 100, 125, 150].map((v) => <option key={v} value={v}>{v}%</option>)}</select></label>
-          <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" })}><option value="en">English</option><option value="tr">Türkçe</option></select></label>
+          <label>{t("settings.lang")}<select value={s.lang} onChange={(e) => s.set({ lang: e.target.value as "en" | "tr" | "zh" })}><option value="en">English</option><option value="tr">Türkçe</option><option value="zh">中文</option></select></label>
           <label>{t("Pressing Enter while editing text")}<select value={s.enterMode} onChange={(e) => s.set({ enterMode: e.target.value as "newline" | "finish" })}><option value="finish">{t("Finishes editing")}</option><option value="newline">{t("Inserts a new line")}</option></select></label>
         </fieldset>
         <fieldset className="sgroup"><legend>{t("Spelling and grammar")}</legend>
@@ -66,7 +66,7 @@ export function AboutModal() {
     <div className="modal" onClick={() => S.toggle("aboutOpen", false)}>
       <div className="dialog about" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
         <button className="iconbtn mclose" onClick={() => S.toggle("aboutOpen", false)}><Icon name="close" size={14} /></button>
-        <div>{t("about.dev")} Canomorph Creative</div><b>Canomind</b><div>{t("about.ver")} 0.9.0</div>
+        <div>Canomorph Creative</div><button className="glink" onClick={() => openLink("https://github.com/canomorph/canomind")}>GitHub</button><b>Canomind</b><div>{t("about.ver")} 1.0.0</div>
       </div>
     </div>
   );
@@ -204,6 +204,21 @@ function SizeInner() {
         <div className="swrow"><span>{t("Width")}</span><input type="number" min={1} step={unit === "mm" ? 0.1 : 1} value={w} onChange={(e) => setW(+e.target.value)} /></div>
         <div className="swrow"><span>{t("Height")}</span><input type="number" min={1} step={unit === "mm" ? 0.1 : 1} value={h} onChange={(e) => setH(+e.target.value)} /></div>
         <div className="dfoot"><button className="dbtn pri" onClick={() => { S.setPageExact(toPx(w, unit), toPx(h, unit)); close(); }}>{t("Apply")}</button><button className="dbtn" onClick={close}>{t("Cancel")}</button></div>
+      </div>
+    </div>
+  );
+}
+
+export function LinkDialog() { const S = useDocs(); return S.linkDlg ? <LinkInner key={S.linkDlg.id + ":" + S.linkDlg.s} /> : null; }
+function LinkInner() {
+  const S = useDocs(), dl = S.linkDlg!, [text, setText] = useState(dl.text), [url, setUrl] = useState(dl.url), close = () => useDocs.setState({ linkDlg: null });
+  return (
+    <div className="modal" onClick={close}>
+      <div className="dialog" onClick={stop}>
+        <div className="phead"><b>{t("Insert link")}</b><button className="iconbtn" onClick={close}><Icon name="close" size={14} /></button></div>
+        <label>{t("Text to display")}<input autoFocus value={text} onChange={(e) => setText(e.target.value)} /></label>
+        <label>{t("Link")}<input value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+        <div className="dfoot"><button className="dbtn pri" onClick={() => S.insertLink(text || url, url)}>{t("Add")}</button><button className="dbtn" onClick={close}>{t("Cancel")}</button></div>
       </div>
     </div>
   );

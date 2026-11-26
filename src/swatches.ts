@@ -9,3 +9,8 @@ const Q: [string, string, string][] = [
 export const DEFAULT_QS: SwStyle[] = Q.map(([fill, stroke, color], i) => ({ id: `qs2-${i}`, fill, stroke, color }));
 export const sameSw = (a: { fill: string; stroke: string; color: string }, b: { fill: string; stroke: string; color: string }) => a.fill === b.fill && a.stroke === b.stroke && a.color === b.color;
 export const moveItem = <T,>(list: T[], from: number, to: number) => { const a = [...list]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; };
+
+const hx = (c: string) => { let h = c.replace("#", ""); if (h.length === 3) h = h.split("").map((x) => x + x).join(""); const n = parseInt(h, 16) || 0; return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+export const mixColor = (a: string, b: string, t: number) => { const x = hx(a), y = hx(b); return "#" + x.map((v, i) => Math.round(v * (1 - t) + y[i] * t).toString(16).padStart(2, "0")).join(""); };
+// Themes: the main box gets the color, sub boxes get lighter pastel tones of the same color (like XMind color themes)
+export const THEMES: [string, string][] = [["Green", "#079a4a"], ["Blue", "#1e88e5"], ["Indigo", "#3949ab"], ["Purple", "#8e24aa"], ["Pink", "#d81b60"], ["Red", "#e53935"], ["Orange", "#fb8c00"], ["Gold", "#f9a825"], ["Teal", "#00897b"], ["Brown", "#6d4c41"], ["Slate", "#546e7a"], ["Black", "#212121"]];

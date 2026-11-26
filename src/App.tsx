@@ -13,7 +13,7 @@ import { NavPane } from "./components/NavPane";
 import { StartScreen } from "./components/StartScreen";
 import { ContextMenu } from "./components/ContextMenu";
 import { Presenter } from "./components/Presenter";
-import { AboutModal, ChartDialog, ChartEditor, CloseAsk, CommentList, Drawer, KeysModal, LinkWarn, SaveAsDialog, Settings, SizeDialog, TableDialog, TemplateGallery } from "./components/Panels";
+import { AboutModal, ChartDialog, ChartEditor, CloseAsk, CommentList, Drawer, KeysModal, LinkDialog, LinkWarn, SaveAsDialog, Settings, SizeDialog, TableDialog, TemplateGallery } from "./components/Panels";
 import { StatusBar } from "./components/StatusBar";
 
 function calcMin(scale: number) {
@@ -47,7 +47,7 @@ export default function App() {
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
       const s = useDocs.getState(), c = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(), sel = s.sel, step = e.shiftKey ? 10 : 1;
-      if (k === "escape") { s.setCtx(null); s.toggle("aboutOpen", false); s.toggle("keysOpen", false); if (s.bgEdit) useDocs.setState({ bgEdit: false, bgSel: null }); if (s.bgDelMode) useDocs.setState({ bgDelMode: false, bgMarks: [] }); }
+      if (k === "escape") { s.setCtx(null); s.toggle("aboutOpen", false); s.toggle("keysOpen", false); if (s.bgEdit) useDocs.setState({ bgEdit: false, bgSel: null }); if (s.bgDelMode) useDocs.setState({ bgDelMode: false, bgMarks: [] }); if (s.inkTool) useDocs.setState({ inkTool: null }); }
       if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement).tagName)) return;
       if (c && k === "o") { e.preventDefault(); openAny(); return; }
       if (c && k === "n") { e.preventDefault(); s.newTab(); return; }
@@ -72,7 +72,7 @@ export default function App() {
   }, []);
   return (
     <div key={lang} className={"app" + (S.focus ? " focus" : "")} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); handleFiles(e.dataTransfer.files); } }}>
-      <input id="canomind-open" type="file" hidden accept=".canomind,.json,.xmind,.mm" onChange={pick("o", importFile)} />
+      <input id="canomind-open" type="file" hidden accept=".canomind,.json,.xmind,.mm,.vsdx,.md,.markdown" onChange={pick("o", importFile)} />
       <input id="canomind-img" type="file" hidden accept="image/*" onChange={pick("i", addImage)} />
       <input id="canomind-bg" type="file" hidden accept="image/png,image/jpeg" onChange={pick("b", bgImageFile)} />
       <input id="canomind-img-attach" type="file" hidden accept="image/*" onChange={pick("a", (f) => { const id = useDocs.getState().imgTarget; if (id) attachImageFile(f, id); })} />
@@ -104,6 +104,7 @@ export default function App() {
       <ChartEditor />
       <CloseAsk />
       <LinkWarn />
+      <LinkDialog />
       <Presenter />
     </div>
   );

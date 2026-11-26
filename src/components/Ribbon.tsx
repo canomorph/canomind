@@ -4,7 +4,7 @@ import { BULLETS, Conn, Item, Kind, pageOf, uid } from "../model";
 import { A_SIZES, B_SIZES, MARK_SIZES, SCREENS, cm, inch, markColor, mm2px } from "../pages";
 import { STENCILS } from "../shapes";
 import { curTab, useDocs, useSettings } from "../store";
-import { SwStyle, moveItem, sameSw } from "../swatches";
+import { SwStyle, THEMES, mixColor, moveItem, sameSw } from "../swatches";
 import { ColorPick } from "./ColorPick";
 import { Icon } from "./Icon";
 import { Drop, MI } from "./Menu";
@@ -86,12 +86,14 @@ export function Ribbon() {
   };
   const flip = (a: string[], id: string) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]);
 
+  const inkKey = S.inkTool === "hl" ? "hl" : "pen", ic = S.inkCfg[inkKey], inkSel = (tl: "pen" | "hl" | "erase") => useDocs.setState({ inkTool: S.inkTool === tl ? null : tl, tool: "select" });
+  const setInk = (p: Partial<{ c: string; w: number; o: number }>) => useDocs.setState({ inkCfg: { ...S.inkCfg, [inkKey]: { ...ic, ...p } } });
   const tabs: Record<string, G[]> = {
     File: [],
     Home: [
       grp("Clipboard", "paste", <><Btn i="paste" l="Paste" on={S.paste} dis={!S.clip} />
-        <Stack><Btn sm i="cut" l="Cut" on={S.cut} dis={!hasSel} /><Btn sm i="copy" l="Copy" on={S.copy} dis={!hasSel} />
-          <Btn sm i="formatpainter" l="Format Painter" act={!!S.painter} dis={!it && !S.painter} on={() => { if (S.painter) S.setPainter(null); else if (it) { const p: any = {}; PICK.forEach((k) => { p[k] = (it as any)[k]; }); S.setPainter(p); } }} /></Stack></>),
+        <Stack><IB i="cut" l="Cut" on={S.cut} dis={!hasSel} /><IB i="copy" l="Copy" on={S.copy} dis={!hasSel} />
+          <IB i="formatpainter" l="Format Painter" act={!!S.painter} dis={!it && !S.painter} on={() => { if (S.painter) S.setPainter(null); else if (it) { const p: any = {}; PICK.forEach((k) => { p[k] = (it as any)[k]; }); S.setPainter(p); } }} /></Stack></>),
       grp("Font", "fontcolor", <div className="col2">
         <Row><select className="rsel ff" title={t("Font")} value={curF} onChange={(e) => S.fmt({ f: e.target.value })}>{fopts.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}</select>
           <select className="rsel fs" title={t("Font size")} value={cs.z} onChange={(e) => S.fmt({ z: +e.target.value })}>{[8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].concat([8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].includes(cs.z) ? [] : [cs.z]).sort((a, b) => a - b).map((n) => <option key={n} value={n}>{n}pt.</option>)}</select>
@@ -99,11 +101,14 @@ export function Ribbon() {
         <Row><IB i="bold" l="Bold" act={cs.b} on={() => S.fmtToggle("b")} /><IB i="italic" l="Italic" act={cs.i} on={() => S.fmtToggle("i")} />
           <IB i="underline" l="Underline" act={cs.u} on={() => S.fmtToggle("u")} /><IB i="strike" l="Strikethrough" act={cs.k} on={() => S.fmtToggle("k")} />
           <Drop mode="icon" i="case" l="Change case">{(c) => <><MI l="UPPERCASE" on={() => recase((s) => s.toUpperCase())} close={c} /><MI l="lowercase" on={() => recase((s) => s.toLowerCase())} close={c} /><MI l="Capitalize Each Word" on={() => recase((s) => s.replace(/\b\w/g, (m) => m.toUpperCase()))} close={c} /></>}</Drop>
-          <ColorMenu mode="icon" i="fontcolor" l="Font color" v={hex(cs.c, "#c00000")} on={(c) => S.fmt({ c })} /></Row></div>),
+          <ColorMenu mode="icon" i="fontcolor" l="Font color" v={hex(cs.c, "#c00000")} on={(c) => S.fmt({ c })} /></Row>
+        <Row><Drop mode="sm" i="texteffect" l="Text effect">{(c) => <>{([["none", "None"], ["outline", "Outline"], ["shadow", "Shadow"]] as const).map(([v, n]) => <MI key={v} l={n} act={(it?.te ?? "none") === v} on={() => S.patch(sel, v === "none" ? { te: "none" } : { te: v, tec: it?.tec ?? "#000000", tes: it?.tes ?? 2 })} close={c} />)}</>}</Drop>
+          <select className="rsel" disabled={(it?.te ?? "none") === "none"} title={t("Size")} value={it?.tes ?? 2} onChange={(e) => pat({ tes: +e.target.value })}>{[1, 2, 3, 4, 6, 8].map((n) => <option key={n} value={n}>{n}px</option>)}</select>
+          <span className={(it?.te ?? "none") === "none" ? "off" : ""}><ColorMenu mode="icon" i="fontcolor" l="Effect color" v={hex(it?.tec, "#000000")} on={(c) => pat({ tec: c })} /></span></Row></div>),
       grp("Paragraph", "alignl", <div className="col2">
         <Row><IB i="valtop" l="Top" act={it?.va === "top"} on={() => pat({ va: "top" })} /><IB i="valmid" l="Middle" act={(it?.va ?? "middle") === "middle"} on={() => pat({ va: "middle" })} /><IB i="valbot" l="Bottom" act={it?.va === "bottom"} on={() => pat({ va: "bottom" })} /><Drop mode="icon" i="bullets" l="Bullets">{(c) => <>{BULLETS.map(([v, l]) => <MI key={v} l={l} act={(it?.bt ?? (it?.bul ? "dot" : "none")) === v} on={() => pat({ bt: v === "none" ? undefined : v, bul: false })} close={c} />)}</>}</Drop></Row>
         <Row><IB i="alignl" l="Align left" act={it?.ha === "left"} on={() => pat({ ha: "left" })} /><IB i="alignc" l="Center" act={(it?.ha ?? "center") === "center"} on={() => pat({ ha: "center" })} /><IB i="alignr" l="Align right" act={it?.ha === "right"} on={() => pat({ ha: "right" })} />
-          <IB i="outdent" l="Decrease indent" on={() => pat({ ind: Math.max(0, (it?.ind ?? 0) - 1) })} /><IB i="indent" l="Increase indent" on={() => pat({ ind: Math.min(8, (it?.ind ?? 0) + 1) })} /></Row></div>),
+          <IB i="outdent" l="Decrease indent" on={() => pat({ ind: Math.max(0, (it?.ind ?? 0) - 1) })} /><IB i="indent" l="Increase indent" on={() => pat({ ind: Math.min(8, (it?.ind ?? 0) + 1) })} /><IB i="rotate" l="Text direction" on={() => pat({ rot: ((it?.rot ?? 0) + 90) % 360 })} /></Row></div>),
       grp("Shape Styles", "quickstyles", <>
         <Drop mode="big" i="quickstyles" l="Quick Styles">{(c) => <div>
           <div className="mgrid q"><SwGrid list={qs} text del={delQS} marks={mkQS} onMark={(id) => setMkQS(flip(mkQS, id))} onApply={(s) => { S.quickStyle(s.fill, s.stroke, s.color); c(); }} onMove={(f, to) => st.set({ quickStyles: moveItem(qs, f, to) })} /></div>
@@ -117,7 +122,9 @@ export function Ribbon() {
       grp("Arrange", "align", <>
         <Drop mode="big" i="align" l="Align">{(c) => <>{([["l", "Align Left"], ["c", "Align Center"], ["r", "Align Right"], ["t", "Align Top"], ["m", "Align Middle"], ["b", "Align Bottom"]] as const).map(([m, n]) => <MI key={m} l={n} dis={!multi} on={() => S.align(m)} close={c} />)}
           <div className="msep" /><MI l="Distribute Horizontally" dis={sel.length < 3} on={() => S.distribute("h")} close={c} /><MI l="Distribute Vertically" dis={sel.length < 3} on={() => S.distribute("v")} close={c} /></>}</Drop>
-        <Stack><Btn sm i="front" l="Bring to Front" dis={!hasSel} on={() => S.z(true)} /><Btn sm i="back" l="Send to Back" dis={!hasSel} on={() => S.z(false)} />
+        <Stack>
+          <Drop mode="sm" i="autolayout" l="Auto layout">{(c) => <><MI i="autolayout" l="Horizontal auto layout" on={() => S.layout("h")} close={c} /><MI i="autolayout" l="Vertical auto layout" on={() => S.layout("v")} close={c} /></>}</Drop>
+          <Drop mode="sm" i="front" l="Move Front/Back">{(c) => <><MI i="front" l="Bring to Front" dis={!hasSel} on={() => S.z(true)} close={c} /><MI i="back" l="Send to Back" dis={!hasSel} on={() => S.z(false)} close={c} /></>}</Drop>
           <Drop mode="sm" i="group" l="Group">{(c) => <><MI i="group" l="Group" dis={!multi} on={() => S.group(true)} close={c} /><MI l="Ungroup" dis={!hasSel} on={() => S.group(false)} close={c} /></>}</Drop></Stack></>),
       grp("Editing", "select", <Stack><Btn sm i="search" l="Find" act={S.pane === "nav"} on={navToggle} />
         <Drop mode="sm" i="layers" l="Layers">{(c) => <><MI i="lock" l="Lock shape" dis={!hasSel} on={() => pat({ lock: true })} close={c} /><MI l="Unlock shape" dis={!hasSel} on={() => pat({ lock: false })} close={c} /></>}</Drop>
@@ -126,7 +133,7 @@ export function Ribbon() {
     Insert: [
       grp("Shapes", "rectangle", <><Drop mode="big" i="changeshape" l="Change Shape">{(c) => gallery(c, (k) => pat({ kind: k }))}</Drop><Btn i="templates" l="Shapes" act={S.pane === "shapes"} on={() => S.setPane(S.pane === "shapes" ? "none" : "shapes")} /></>),
       grp("Mind map", "child", <><Btn i="child" l="Subtopic" on={() => sel[0] && S.addChild(sel[0], "r", false)} dis={!it} /><Btn i="sibling" l="Sibling" on={() => sel[0] && S.addSibling(sel[0], false)} dis={!it} /></>),
-      grp("Text", "textbox", <><Btn i="notepad" l="Note" on={() => S.addAtCenter("notepad")} /><Btn i="note" l="Sticky note" on={() => S.addAtCenter("note")} /><Btn i="textbox" l="Text box" on={() => S.addAtCenter("text")} /><Btn i="todo" l="To-do box" on={() => S.addAtCenter("todo")} /></>),
+      grp("Text", "textbox", <><Btn i="notepad" l="Note" on={() => S.addAtCenter("notepad")} /><Btn i="note" l="Sticky note" on={() => S.addAtCenter("note")} /><Btn i="textbox" l="Text" on={() => S.addAtCenter("text")} /><Btn i="todo" l="To-do box" on={() => S.addAtCenter("todo")} /></>),
       grp("Media", "image", <Btn i="image" l="Image" on={() => el("canomind-img")?.click()} />),
       grp("Tables & Charts", "table", <><Btn i="table" l="Table" on={() => S.toggle("tableDlg", true)} /><Btn i="chart" l="Chart" on={() => S.toggle("chartDlg", true)} /></>),
     ],
@@ -146,14 +153,19 @@ export function Ribbon() {
       grp("Background image", "bgimg", <>
         <Btn i="bgimg" l="Add" on={() => el("canomind-bg")?.click()} />
         <Stack><Btn sm i="edit" l="Edit" act={S.bgEdit} dis={!bgn || S.bgDelMode} on={() => useDocs.setState({ bgEdit: !S.bgEdit, bgSel: null })} /><Btn sm i="delete" l="Delete" act={S.bgDelMode} dis={!bgn} on={S.bgDel} /></Stack></>),
-      grp("Layout", "autolayout", <Drop mode="big" i="autolayout" l="Auto layout">{(c) => <><MI i="autolayout" l="Horizontal auto layout" on={() => S.layout("h")} close={c} /><MI i="autolayout" l="Vertical auto layout" on={() => S.layout("v")} close={c} /></>}</Drop>),
       grp("Connector style", "connector", <><Btn i="curve" l="Curved" act={cStyle === "curve"} on={() => pc({ style: "curve" })} /><Btn i="straight" l="Straight" act={cStyle === "straight"} on={() => pc({ style: "straight" })} /><Btn i="elbow" l="Elbow" act={cStyle === "elbow"} on={() => pc({ style: "elbow" })} /></>),
+      grp("Themes", "themes", <Drop mode="big" i="themes" l="Themes">{(c) => <div className="thgrid">{THEMES.map(([n, col]) => <button key={n} className="thm" title={t(n)} onClick={() => { S.applyTheme(col); c(); }}><b style={{ background: col }} /><i style={{ background: mixColor(col, "#ffffff", 0.78) }} /><i style={{ background: mixColor(col, "#ffffff", 0.88) }} /><span>{t(n)}</span></button>)}</div>}</Drop>),
       grp("Color schemes", "palette", <><div className="schemes"><SwGrid list={sc} del={delSC} marks={mkSC} onMark={(id) => setMkSC(flip(mkSC, id))} onApply={(s) => S.palette(s.fill, s.stroke, s.color)} onMove={(f, to) => st.set({ schemes: moveItem(sc, f, to) })} /></div>
         <Stack><Btn sm i="plus" l="Add" dis={!it} on={addSC} /><Btn sm i="delete" l="Delete" act={delSC} on={() => delToggle("sc")} /></Stack></>),
     ],
     Review: [
       grp("Proofing", "spell", <Btn i="spell" l="Spell check" act={S.spell} on={() => S.toggle("spell")} />),
       grp("Comments", "comment", <Btn i="comment" l="New comment" on={() => { if (sel[0]) S.setCommentTarget(sel[0]); S.toggle("commentsOpen", true); }} />),
+      grp("Draw", "pen", <>
+        <Btn i="pen" l="Pen" act={S.inkTool === "pen"} on={() => inkSel("pen")} /><Btn i="highlighter" l="Highlighter" act={S.inkTool === "hl"} on={() => inkSel("hl")} /><Btn i="eraser" l="Eraser" act={S.inkTool === "erase"} on={() => inkSel("erase")} />
+        <Stack><select className="rsel" title={t("Thickness")} value={ic.w} onChange={(e) => setInk({ w: +e.target.value })}>{[1, 2, 3, 4, 6, 8, 12, 16, 24, 32].map((n) => <option key={n} value={n}>{n}px</option>)}</select>
+          <label className="oprow2" title={t("Opacity")}><span>{t("Opacity")}</span><input type="range" min={10} max={100} value={Math.round(ic.o * 100)} onChange={(e) => setInk({ o: +e.target.value / 100 })} /></label>
+          <ColorMenu i="fill" l="Color" v={ic.c} on={(c) => setInk({ c })} /></Stack></>),
     ],
     View: [
       grp("Show", "ruler", <>

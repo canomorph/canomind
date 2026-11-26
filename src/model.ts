@@ -2,10 +2,11 @@ import { textW } from "./measure";
 import { t as tr } from "./i18n";
 export type Kind = "rect"|"square"|"round"|"ellipse"|"circle"|"diamond"|"triangle"|"rtriangle"|"rotri"|"parallelogram"|"trapezoid"|"hexagon"|"heptagon"|"octagon"|"decagon"|"pentagon"|"star"|"star4"|"cylinder"|"cloud"|"arrow"|"larrow"|"uarrow"|"darrow"|"dblarrow"|"chevron"|"cross"|"cube"|"drop"|"semicircle"|"semiellipse"|"cone"|"invcone"|"pyramid"|"pointedoval"|"funnel"|"gear"|"document"|"terminator"|"callout"|"note"|"text"|"image"|"table"|"chart"|"notepad"|"todo";
 export const GALLERY: Kind[] = ["rect","round","ellipse","diamond","triangle","parallelogram","hexagon","pentagon","star","cylinder","cloud","arrow","cross","document","terminator","callout"];
-export interface Item { id:string; kind:Kind; x:number; y:number; w:number; h:number; text:string; fill:string; stroke:string; sw:number; color:string; fs:number; bold:boolean; italic:boolean; dash:boolean; src?:string; ff?:string; ul?:boolean; st?:boolean; ha?:"left"|"center"|"right"; va?:"top"|"middle"|"bottom"; bul?:boolean; ind?:number; shadow?:boolean; lock?:boolean; g?:string; tbl?:{r:number;c:number;cells:string[][]}; chart?:{type:string;cats:string[];series:{name:string;vals:number[]}[]}; img?:string; ih?:number; note?:string; nh?:number; fo?:number; so?:number; done?:boolean; bt?:string; runs?:Run[]; nruns?:Run[]; ns?:Fmt; gt?:{k:string;c?:number;r?:number;s?:number} }
+export interface Item { id:string; kind:Kind; x:number; y:number; w:number; h:number; text:string; fill:string; stroke:string; sw:number; color:string; fs:number; bold:boolean; italic:boolean; dash:boolean; src?:string; ff?:string; ul?:boolean; st?:boolean; ha?:"left"|"center"|"right"; va?:"top"|"middle"|"bottom"; bul?:boolean; ind?:number; shadow?:boolean; lock?:boolean; g?:string; tbl?:{r:number;c:number;cells:string[][]}; chart?:{type:string;cats:string[];series:{name:string;vals:number[]}[]}; img?:string; ih?:number; note?:string; nh?:number; fo?:number; so?:number; done?:boolean; bt?:string; runs?:Run[]; nruns?:Run[]; ns?:Fmt; rot?:number; te?:string; tes?:number; tec?:string; gt?:{k:string;c?:number;r?:number;s?:number} }
 export interface Conn { id:string; from:string; to:string; style:"curve"|"straight"|"elbow"; arrow:boolean; dash:boolean; color:string }
 export interface BgImg { id: string; src: string; x: number; y: number; w: number; h: number }
-export interface Doc { items:Record<string,Item>; conns:Record<string,Conn>; order:string[]; bg?: { color?: string; imgs: BgImg[] }; page?: { w: number; h: number } }
+export interface Doc { items:Record<string,Item>; conns:Record<string,Conn>; order:string[]; bg?: { color?: string; imgs: BgImg[] }; page?: { w: number; h: number }; ink?: Stroke[] }
+export interface Stroke { id: string; pts: [number, number][]; c: string; w: number; o: number; hl?: boolean }
 export const emptyDoc = (): Doc => ({ items:{}, conns:{}, order:[] });
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -31,6 +32,7 @@ const gearP = (w: number, h: number) => { const cx = w / 2, cy = h / 2; let d = 
 export function shapePath(k: Kind, w: number, h: number): string {
   const r = Math.min(12, h / 3);
   switch (k) {
+    case "note": { const f = foldSize(w, h); return `M0,0H${w}V${h - f}L${w - f},${h}H0Z`; }
     case "circle": return shapePath("ellipse", w, h);
     case "semicircle": case "semiellipse": return `M0,${h}A${w/2},${h} 0 0 1 ${w},${h}Z`;
     case "square": return `M0,0H${w}V${h}H0Z`;
@@ -81,18 +83,27 @@ export function wrap(text: string, w: number, fs: number, ff?: string, bold = fa
 export const A4L = { w: 1123, h: 794 };
 export const pageOf = (d: Doc) => d.page ?? A4L;
 // Grows a box (width and height by the same factor) until its text and note fit inside.
-export function growToFit(it: Item): Partial<Item> {
-  if (["image", "table", "chart", "notepad"].includes(it.kind)) return {};
-  let w = it.w, hm = it.h - (it.nh ?? 0), nh = it.nh ?? 0; const nh0 = nh, ih = it.ih ?? 0, left = it.kind === "todo" ? 34 : 0, ind = (it.ind ?? 0) * 14, bs = baseStyle(it, "text"), ns = baseStyle(it, "note");
-  for (let k = 0; k < 8; k++) {
-    const lines = layoutText(it.text, it.runs, bs, w - ind - left - 16, (pi) => bulletPrefix(it, pi)), nl = it.note !== undefined ? layoutText(it.note, it.nruns, ns, w - 32) : [];
-    const maxLine = Math.max(0, ...lines.map((l) => l.w)), maxNote = Math.max(0, ...nl.map((l) => l.w)), th = lines.reduce((a, l) => a + l.h, 0), nth = nl.reduce((a, l) => a + l.h, 0);
-    nh = it.note !== undefined ? Math.max(34, Math.round(nth + 16)) : 0;
-    const f = Math.max(1, Math.max(maxLine + ind + left + 20, maxNote + 32) / w, (ih + th + 16) / hm);
-    if (f <= 1.0001) break; w = Math.ceil(w * f); hm = Math.ceil(hm * f);
+// Keeps text inside its box. mode "edit": grow downward. "resizeW" (box was narrowed): grow height top and bottom. "resizeH" (box was shortened): widen left and right.
+export function growToFit(it: Item, mode: "edit" | "resizeW" | "resizeH" = "edit"): Partial<Item> {
+  if (["image", "table", "chart"].includes(it.kind)) return {};
+  const notepad = it.kind === "notepad", bs = baseStyle(it, "text"), ns = baseStyle(it, "note"), left = it.kind === "todo" ? 34 : 0, ind = (it.ind ?? 0) * 14, ih = it.ih ?? 0, lhp = Math.max(20, it.fs * 1.6);
+  if ((it.rot ?? 0) % 180 !== 0) { const ls = layoutText(it.text, it.runs, bs, it.h - 16), th = ls.reduce((a, l) => a + l.h, 0), ml = Math.max(0, ...ls.map((l) => l.w)), w2 = Math.max(it.w, Math.ceil(th + 16)), h2 = Math.max(it.h, Math.ceil(ml + left + ind + 20)); return w2 === it.w && h2 === it.h ? {} : { w: w2, h: h2 }; }
+  const measure = (ww: number) => {
+    if (notepad) { const ls = layoutText(it.text, it.runs, bs, ww - 60); return { needW: Math.max(0, ...ls.map((l) => l.w)) + 60, needHm: 16 + ls.length * lhp, nh: 0 }; }
+    const ls = layoutText(it.text, it.runs, bs, ww - ind - left - 16, (pi) => bulletPrefix(it, pi)), nl = it.note !== undefined ? layoutText(it.note, it.nruns, ns, ww - 32) : [];
+    const ml = Math.max(0, ...ls.map((l) => l.w)), mn = Math.max(0, ...nl.map((l) => l.w)), th = ls.reduce((a, l) => a + l.h, 0), nth = nl.reduce((a, l) => a + l.h, 0);
+    return { needW: Math.max(ml + ind + left + 20, mn + 32), needHm: ih + th + 16, nh: it.note !== undefined ? Math.max(34, Math.round(nth + 16)) : 0 };
+  };
+  let w = it.w, x = it.x, y = it.y, m = measure(w); const hmOld = it.h - (it.nh ?? 0); let hm = hmOld;
+  if (m.needW > w + 0.5) { const nw = Math.ceil(m.needW); if (mode !== "edit") x -= (nw - w) / 2; w = nw; m = measure(w); }
+  if (m.needHm > hm + 0.5) {
+    if (mode === "resizeH") {
+      let hi = w, mm = m; for (let k = 0; k < 6 && mm.needHm > hmOld; k++) { hi *= 1.6; mm = measure(hi); }
+      if (mm.needHm <= hmOld) { let lo = w; for (let k = 0; k < 18; k++) { const mid = (lo + hi) / 2; if (measure(mid).needHm <= hmOld) hi = mid; else lo = mid; } const nw = Math.ceil(hi); x -= (nw - w) / 2; w = nw; m = measure(w); } else hm = Math.ceil(m.needHm);
+    } else { const nhm = Math.ceil(m.needHm); if (mode === "resizeW") y -= (nhm - hm) / 2; hm = nhm; }
   }
-  const h = hm + nh; if (w === it.w && h === it.h && nh === nh0) return {};
-  return it.note !== undefined ? { w, h, nh } : { w, h };
+  const h = hm + m.nh, out: Partial<Item> = {}; if (w !== it.w) out.w = w; if (h !== it.h) out.h = h; if (x !== it.x) out.x = x; if (y !== it.y) out.y = y; if (it.note !== undefined && m.nh !== (it.nh ?? 0)) out.nh = m.nh;
+  return out;
 }
 
 export function connPath(a: Item, b: Item, style: Conn["style"]) {
@@ -190,13 +201,13 @@ export function bulletPrefix(it: Item, i: number): string {
 export const bulletize = (it: Item) => it.text.split("\n").map((l, i) => bulletPrefix(it, i) + l).join("\n");
 
 // ---------- rich text: formatting runs over a text, laid out line by line ----------
-export interface Fmt { b?: boolean; i?: boolean; u?: boolean; k?: boolean; c?: string; z?: number; f?: string }
+export interface Fmt { h?: string; b?: boolean; i?: boolean; u?: boolean; k?: boolean; c?: string; z?: number; f?: string }
 export interface Run extends Fmt { s: number; e: number }
-export interface TStyle { b: boolean; i: boolean; u: boolean; k: boolean; c: string; z: number; f: string }
+export interface TStyle { h?: string; b: boolean; i: boolean; u: boolean; k: boolean; c: string; z: number; f: string }
 export const baseStyle = (it: Item, field: "text" | "note"): TStyle => field === "text"
   ? { b: !!it.bold, i: !!it.italic, u: !!it.ul, k: !!it.st || (it.kind === "todo" && !!it.done), c: it.color, z: it.fs, f: it.ff ?? "Calibri" }
   : { b: it.ns?.b ?? false, i: it.ns?.i ?? false, u: it.ns?.u ?? false, k: it.ns?.k ?? false, c: it.ns?.c ?? it.color, z: it.ns?.z ?? Math.max(8, it.fs - 2), f: it.ns?.f ?? it.ff ?? "Calibri" };
-export const styleAt = (base: TStyle, runs: Run[] | undefined, idx: number): TStyle => { const r = runs?.find((x) => idx >= x.s && idx < x.e); return r ? { b: r.b ?? base.b, i: r.i ?? base.i, u: r.u ?? base.u, k: r.k ?? base.k, c: r.c ?? base.c, z: r.z ?? base.z, f: r.f ?? base.f } : base; };
+export const styleAt = (base: TStyle, runs: Run[] | undefined, idx: number): TStyle => { const r = runs?.find((x) => idx >= x.s && idx < x.e); return r ? { h: r.h ?? base.h, b: r.b ?? base.b, i: r.i ?? base.i, u: r.u ?? base.u, k: r.k ?? base.k, c: r.c ?? base.c, z: r.z ?? base.z, f: r.f ?? base.f } : base; };
 export interface Seg { s: number; e: number; st: TStyle }
 export interface LLine { segs: Seg[]; prefix: string; w: number; h: number; start: number; end: number }
 export function splitSegs(s: number, e: number, base: TStyle, runs?: Run[]): Seg[] {
@@ -219,12 +230,12 @@ export function layoutText(text: string, runs: Run[] | undefined, base: TStyle, 
   });
   return lines;
 }
-const sameFmt = (a: Fmt, b: Fmt) => (["b", "i", "u", "k", "c", "z", "f"] as (keyof Fmt)[]).every((k) => a[k] === b[k]);
+const sameFmt = (a: Fmt, b: Fmt) => (["b", "i", "u", "k", "c", "z", "f", "h"] as (keyof Fmt)[]).every((k) => a[k] === b[k]);
 export function applyRuns(runs: Run[] | undefined, s: number, e: number, p: Fmt, len: number, base: TStyle): Run[] {
   const cur = runs ?? [], cuts = new Set<number>([0, len, Math.min(s, len), Math.min(e, len)]); cur.forEach((r) => { cuts.add(Math.max(0, Math.min(len, r.s))); cuts.add(Math.max(0, Math.min(len, r.e))); });
   const pts = Array.from(cuts).sort((a, b) => a - b), out: Run[] = [];
   for (let k = 0; k + 1 < pts.length; k++) {
-    const a = pts[k], b = pts[k + 1]; if (b <= a) continue; const old = cur.find((r) => a >= r.s && a < r.e); let f: Fmt = old ? { b: old.b, i: old.i, u: old.u, k: old.k, c: old.c, z: old.z, f: old.f } : {};
+    const a = pts[k], b = pts[k + 1]; if (b <= a) continue; const old = cur.find((r) => a >= r.s && a < r.e); let f: Fmt = old ? { h: old.h, b: old.b, i: old.i, u: old.u, k: old.k, c: old.c, z: old.z, f: old.f } : {};
     if (a >= s && b <= e) f = { ...f, ...p }; const clean: Fmt = {};
     (Object.keys(f) as (keyof Fmt)[]).forEach((key) => { if (f[key] !== undefined && f[key] !== (base as any)[key]) (clean as any)[key] = f[key]; });
     if (Object.keys(clean).length) { const prev = out[out.length - 1]; if (prev && prev.e === a && sameFmt(prev, clean)) prev.e = b; else out.push({ s: a, e: b, ...clean }); }
@@ -233,7 +244,7 @@ export function applyRuns(runs: Run[] | undefined, s: number, e: number, p: Fmt,
 }
 export function stripRuns(runs: Run[] | undefined, p: Fmt): Run[] | undefined {
   if (!runs) return runs; const keys = Object.keys(p) as (keyof Fmt)[];
-  return runs.map((r) => { const c: any = { ...r }; keys.forEach((k) => delete c[k]); return c as Run; }).filter((r) => (["b", "i", "u", "k", "c", "z", "f"] as (keyof Fmt)[]).some((k) => r[k] !== undefined));
+  return runs.map((r) => { const c: any = { ...r }; keys.forEach((k) => delete c[k]); return c as Run; }).filter((r) => (["b", "i", "u", "k", "c", "z", "f", "h"] as (keyof Fmt)[]).some((k) => r[k] !== undefined));
 }
 // keeps formatting runs attached to the right characters when the text is edited
 export function shiftRuns(runs: Run[] | undefined, oldT: string, newT: string): Run[] | undefined {
@@ -246,3 +257,22 @@ export function shiftRuns(runs: Run[] | undefined, oldT: string, newT: string): 
     if (e > s) out.push({ ...r, s, e }); });
   return out;
 }
+
+export const foldSize = (w: number, h: number) => Math.min(24, Math.min(w, h) * 0.2);
+export const hasShadow = (it: Item) => it.shadow ?? it.kind === "note";
+// text rotation (0/90/180/270): virtual text box -> item coordinates
+export const rotXform = (it: Item) => { const r = it.kind === "notepad" ? 0 : (it.rot ?? 0) % 360; return r === 90 ? `translate(${it.w},0) rotate(90)` : r === 270 ? `translate(0,${it.h}) rotate(270)` : r === 180 ? `translate(${it.w},${it.h}) rotate(180)` : ""; };
+export const toVirtual = (it: Item, lx: number, ly: number): [number, number] => { const r = it.kind === "notepad" ? 0 : (it.rot ?? 0) % 360; return r === 90 ? [ly, it.w - lx] : r === 270 ? [it.h - ly, lx] : r === 180 ? [it.w - lx, it.h - ly] : [lx, ly]; };
+export interface PLine { ln: LLine; sx: number; y: number; h: number }
+// where every line of the text (or note) is drawn, in virtual (unrotated) box coordinates
+export function placeLines(it: Item, field: "text" | "note"): PLine[] {
+  const ind = (it.ind ?? 0) * 14, left = it.kind === "todo" ? 34 : 0, ha = it.ha ?? "center", va = it.va ?? "middle", nh = it.nh ?? 0;
+  if (field === "note") { const ns = baseStyle(it, "note"), ls = layoutText(it.note ?? "", it.nruns, ns, it.w - 32); let y = it.h - nh + 8; return ls.map((ln) => { const p = { ln, sx: it.w / 2 - ln.w / 2, y, h: ln.h }; y += ln.h; return p; }); }
+  const bs = baseStyle(it, "text"), rot = it.kind !== "notepad" && (it.rot ?? 0) % 180 !== 0, W = rot ? it.h : it.w, H = rot ? it.w : it.h, ih = rot ? 0 : it.ih ?? 0, nhh = rot ? 0 : nh;
+  if (it.kind === "notepad") { const lh = Math.max(20, it.fs * 1.6), ls = layoutText(it.text, it.runs, bs, it.w - 60); return ls.map((ln, i) => ({ ln, sx: 38, y: 8 + i * lh + 2, h: lh })); }
+  const ls = layoutText(it.text, it.runs, bs, W - ind - left - 16, (pi) => bulletPrefix(it, pi)), th = ls.reduce((a, l) => a + l.h, 0), top = ih, bottom = H - nhh;
+  let y = va === "top" ? top + 8 : va === "bottom" ? bottom - 8 - th : (top + bottom) / 2 - th / 2; const tx = ha === "left" ? 8 + left + ind : ha === "right" ? W - 8 : left + (W - left) / 2 + ind / 2;
+  return ls.map((ln) => { const sx = ha === "left" ? tx : ha === "right" ? tx - ln.w : tx - ln.w / 2, p = { ln, sx, y, h: ln.h }; y += ln.h; return p; });
+}
+export const inkPath = (pts: [number, number][]) => { if (!pts.length) return ""; if (pts.length < 3) return `M${pts[0][0]},${pts[0][1]}` + pts.slice(1).map((p) => `L${p[0]},${p[1]}`).join("") + (pts.length === 1 ? `l0.1,0` : "");
+  let d = `M${pts[0][0]},${pts[0][1]}`; for (let i = 1; i < pts.length - 1; i++) d += `Q${pts[i][0]},${pts[i][1]} ${(pts[i][0] + pts[i + 1][0]) / 2},${(pts[i][1] + pts[i + 1][1]) / 2}`; const l = pts[pts.length - 1]; return d + `L${l[0]},${l[1]}`; };

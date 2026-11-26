@@ -14,12 +14,14 @@ export async function addCustomDict(code: string, aff: string, dic: string) {
 }
 export async function availableLangs(codes: string[]): Promise<string[]> {
   const out = (await customDicts()).map((c) => c.code);
-  await Promise.all(codes.map(async (c) => { if (out.includes(c)) return; try { const r = await fetch(`/dict/${c}.aff`, { method: "HEAD" }); if (r.ok && !(r.headers.get("content-type") || "").includes("html")) out.push(c); } catch {} }));
+  await Promise.all(codes.map(async (c) => { if (out.includes(c)) return; try { const r = await fetch(`/dict/${c}.aff`); if (r.ok && !(await r.text()).trimStart().startsWith("<")) out.push(c); } catch {} }));
+  if (!out.includes("zh-CN")) out.push("zh-CN");
   return out;
 }
 export function loadSpell(lang: string): Promise<Checker | null> {
   if (!cache.has(lang)) cache.set(lang, (async () => {
     try {
+      if (lang.startsWith("zh")) return { correct: () => true } as Checker; // no word-based spell checking for Chinese; grammar rules still apply
       const cd = (await customDicts()).find((c) => c.code === lang); if (cd) return nspell(cd.aff, cd.dic);
       const [a, d] = await Promise.all([fetch(`/dict/${lang}.aff`), fetch(`/dict/${lang}.dic`)]); if (!a.ok || !d.ok) return null;
       const dec = new TextDecoder("utf-8"), aff = dec.decode(await a.arrayBuffer()); if (aff.trimStart().startsWith("<")) return null;

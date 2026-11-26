@@ -183,3 +183,12 @@ input[type=range],input[type=checkbox],input[type=radio]{accent-color:#079a4a}.z
 .sgroup{border:1px solid var(--line);border-radius:.5rem;padding:.6rem .8rem .8rem;display:flex;flex-direction:column;gap:.6rem;margin:0}.sgroup legend{padding:0 .4rem;font-weight:600;font-size:.85rem}
 .dialog.settings{max-height:92vh;overflow-y:auto}
 .mi.act .dim{color:inherit;opacity:.7}
+
+/* ---- v1.0 ---- */
+.caret{animation:blink 1s step-end infinite}@keyframes blink{50%{opacity:0}}
+.off{opacity:.35;pointer-events:none}
+.oprow2{display:flex;align-items:center;gap:.35rem;font-size:.78rem}.oprow2 input{width:5.5rem}
+.thgrid{display:grid;grid-template-columns:repeat(3,7rem);gap:.4rem;padding:.4rem}
+.thm{display:grid;grid-template-columns:1.4rem 1.4rem 1.4rem;gap:2px;align-items:center;padding:.3rem;border-radius:.4rem;border:1px solid var(--line);font-size:.75rem}.thm:hover{border-color:var(--accent);background:var(--hover)}
+.thm b,.thm i{height:1.1rem;border-radius:.2rem;display:block}.thm span{grid-column:1/4;text-align:left}
+.glink{color:#4da3ff;text-decoration:underline;padding:0}

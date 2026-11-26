@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { Doc, Item, Kind, LLine, TStyle, baseStyle, bounds, bulletPrefix, layoutText, connEnds, connPath, listLines, lum, readable, shapePath, wrap } from "./model";
+import { PDFDocument, PDFFont, PDFPage, StandardFonts, degrees, rgb } from "pdf-lib";
+import { Doc, Item, Kind, LLine, TStyle, baseStyle, bounds, hasShadow, foldSize, bulletPrefix, layoutText, placeLines, inkPath, connEnds, connPath, listLines, lum, readable, shapePath, wrap } from "./model";
 import { Prim, chartPrims, tablePrims } from "./prims";
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -47,30 +47,30 @@ async function drawItem(pdf: PDFDocument, page: PDFPage, it: Item, ox: number, o
   if (it.kind === "image") { const img = await embedImg(pdf, it.src ?? ""); if (img) page.drawImage(img, { x: ox, y: oy - it.h, width: it.w, height: it.h }); return; }
   const kp = (["table", "chart", "notepad"].includes(it.kind) ? "rect" : it.kind === "todo" ? "round" : it.kind) as Kind, hasFill = it.fill !== "none", hasLine = !!it.sw;
   if (hasFill || hasLine) page.drawSvgPath(shapePath(kp, it.w, it.h), { x: ox, y: oy, color: hasFill ? rgbOf(it.fill) : undefined, opacity: it.fo ?? 1, borderColor: hasLine ? rgbOf(it.stroke) : undefined, borderWidth: it.sw || 0, borderOpacity: it.so ?? 1, borderDashArray: it.dash ? [6, 4] : undefined });
+  if (it.kind === "note") { const f = foldSize(it.w, it.h); page.drawSvgPath(`M${it.w - f},${it.h}L${it.w},${it.h - f}L${it.w - f},${it.h - f}Z`, { x: ox, y: oy, color: rgb(0, 0, 0), opacity: 0.2 }); }
   if (it.kind === "table" || it.kind === "chart") { await drawPrims(pdf, page, it.kind === "table" ? tablePrims(it) : chartPrims(it), ox, oy, cache); return; }
   const col = it.fill === "none" ? readable(it.color, dark) : it.color, font = await getFont(pdf, it.ff ?? "Calibri", !!it.bold, !!it.italic, cache), deco = { ul: it.ul, st: it.st };
-  if (it.kind === "notepad") {
-    const lh = Math.max(20, it.fs * 1.6); for (let y = 8 + lh; y < it.h - 4; y += lh) page.drawLine({ start: { x: ox, y: oy - y }, end: { x: ox + it.w, y: oy - y }, thickness: 0.6, color: rgbOf("#a8c7e8") });
-    page.drawLine({ start: { x: ox + 30, y: oy }, end: { x: ox + 30, y: oy - it.h }, thickness: 0.6, color: rgbOf("#e57373") });
-    wrap(it.text, it.w - 44, it.fs, it.ff ?? "Calibri", it.bold, it.italic).forEach((l, i) => drawLine(page, font, l, ox + 38, oy - (8 + (i + 1) * lh - 5), it.fs, col, deco)); return;
-  }
-  const ha = it.ha ?? "center", va = it.va ?? "middle", ind = (it.ind ?? 0) * 14, ih = it.ih ?? 0, nh = it.nh ?? 0, left = it.kind === "todo" ? 34 : 0, done = it.kind === "todo" && !!it.done;
-  const bs = baseStyle(it, "text"), ns = baseStyle(it, "note"), lines = layoutText(it.text, it.runs, bs, it.w - ind - left - 16, (pi) => bulletPrefix(it, pi)), th = lines.reduce((a, l) => a + l.h, 0), top = ih, bottom = it.h - nh;
-  const drawRich = async (ln: LLine, text: string, startX: number, cy: number, base: TStyle, baseCol: string, strike: boolean) => {
-    let cx = startX; const bl = oy - cy - (ln.h / 1.25) * 0.33;
-    const put = async (str: string, st: TStyle, color: string, link: boolean) => { if (!str) return; const f = await getFont(pdf, st.f, st.b, st.i, cache), s2 = safe(f, str), w = f.widthOfTextAtSize(s2, st.z);
-      page.drawText(s2, { x: cx, y: bl, size: st.z, font: f, color: rgbOf(color) }); if (link || st.u) page.drawLine({ start: { x: cx, y: bl - 1.5 }, end: { x: cx + w, y: bl - 1.5 }, thickness: 0.7, color: rgbOf(color) });
-      if (st.k || strike) page.drawLine({ start: { x: cx, y: bl + st.z * 0.3 }, end: { x: cx + w, y: bl + st.z * 0.3 }, thickness: 0.7, color: rgbOf(color) }); cx += w; };
+  const done = it.kind === "todo" && !!it.done, bs = baseStyle(it, "text"), ns = baseStyle(it, "note"), ih = it.ih ?? 0, nh = it.nh ?? 0, rot = it.kind === "notepad" ? 0 : (it.rot ?? 0) % 360;
+  const mapPt = (vx: number, vy: number): [number, number] => (rot === 90 ? [it.w - vy, vx] : rot === 270 ? [vy, it.h - vx] : rot === 180 ? [it.w - vx, it.h - vy] : [vx, vy]);
+  const drawRich = async (ln: LLine, text: string, sx: number, top: number, base: TStyle, baseCol: string, strike: boolean, r: number) => {
+    let cx = sx; const vyb = top + ln.h / 2 + (ln.h / 1.25) * 0.33, pt = (vx: number, vy: number): [number, number] => { const q = r === 0 ? [vx, vy] : mapPt(vx, vy); return [ox + q[0], oy - q[1]]; };
+    const put = async (str: string, st: TStyle, color: string, link: boolean) => { if (!str) return; const f = await getFont(pdf, st.f, st.b, st.i, cache), s2 = safe(f, str), w = f.widthOfTextAtSize(s2, st.z), [px, py] = pt(cx, vyb), rr = r ? { rotate: degrees(-r) } : {};
+      const eff = it.te, es = it.tes ?? 2, ec = rgbOf(it.tec ?? "#000000"), d1 = r ? [0, 0] : [0, 0];
+      if (eff === "shadow") page.drawText(s2, { x: px + es, y: py - es, size: st.z, font: f, color: ec, opacity: 0.5, ...rr });
+      if (eff === "outline") for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-0.7, -0.7], [0.7, -0.7], [-0.7, 0.7], [0.7, 0.7]]) page.drawText(s2, { x: px + dx * es, y: py + dy * es, size: st.z, font: f, color: ec, ...rr });
+      page.drawText(s2, { x: px, y: py, size: st.z, font: f, color: rgbOf(color), ...rr }); void d1;
+      const seg = (dy: number) => { const [x1, y1] = pt(cx, vyb + dy), [x2, y2] = pt(cx + w, vyb + dy); page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.7, color: rgbOf(color) }); };
+      if (link || st.u) seg(1.5); if (st.k || strike) seg(-st.z * 0.3); cx += w; };
     if (ln.prefix) await put(ln.prefix, base, baseCol, false);
-    for (const g of ln.segs) for (const [k, part] of text.slice(g.s, g.e).split(URL_RE).entries()) await put(part, g.st, k % 2 === 1 ? "#4da3ff" : g.st.c === base.c ? baseCol : g.st.c, k % 2 === 1);
+    for (const g of ln.segs) for (const [k, part] of text.slice(g.s, g.e).split(URL_RE).entries()) { const url = k % 2 === 1 ? part : g.st.h; await put(part, g.st, url ? "#4da3ff" : g.st.c === base.c ? baseCol : g.st.c, !!url); }
   };
   if (it.kind === "todo") { page.drawRectangle({ x: ox + 9, y: oy - it.h / 2 - 9, width: 18, height: 18, color: rgb(1, 1, 1), borderColor: rgbOf(it.stroke), borderWidth: 2 }); if (done) { page.drawLine({ start: { x: ox + 13, y: oy - it.h / 2 }, end: { x: ox + 17, y: oy - it.h / 2 - 4 }, thickness: 2.5, color: rgbOf("#07a352") }); page.drawLine({ start: { x: ox + 17, y: oy - it.h / 2 - 4 }, end: { x: ox + 24, y: oy - it.h / 2 + 4 }, thickness: 2.5, color: rgbOf("#07a352") }); } }
   if (it.img && ih > 0) { const img = await embedImg(pdf, it.img); if (img) { const aw = it.w - 16, ah = ih - 12, k = Math.min(aw / img.width, ah / img.height), sw = img.width * k, sh = img.height * k;
     page.drawImage(img, { x: ox + 8 + (aw - sw) / 2, y: oy - (6 + (ah - sh) / 2) - sh, width: sw, height: sh }); } }
-  let y = va === "top" ? top + 8 : va === "bottom" ? bottom - 8 - th : (top + bottom) / 2 - th / 2;
-  for (const ln of lines) { const cy = y + ln.h / 2; y += ln.h; const sx = ha === "left" ? ox + 8 + left + ind : ha === "right" ? ox + it.w - 8 - ln.w : ox + left + (it.w - left) / 2 + ind / 2 - ln.w / 2; await drawRich(ln, it.text, sx, cy, bs, col, done); }
+  if (it.kind === "notepad") { const lh = Math.max(20, it.fs * 1.6); for (let y = 8 + lh; y < it.h - 4; y += lh) page.drawLine({ start: { x: ox, y: oy - y }, end: { x: ox + it.w, y: oy - y }, thickness: 0.6, color: rgbOf("#a8c7e8") }); page.drawLine({ start: { x: ox + 30, y: oy }, end: { x: ox + 30, y: oy - it.h }, thickness: 0.6, color: rgbOf("#e57373") }); }
+  for (const p of placeLines(it, "text")) await drawRich(p.ln, it.text, p.sx, p.y, bs, col, done, rot);
   if (nh > 0) { page.drawLine({ start: { x: ox + 8, y: oy - (it.h - nh) }, end: { x: ox + it.w - 8, y: oy - (it.h - nh) }, thickness: 0.6, color: rgbOf(col), opacity: 0.35 });
-    const nl = layoutText(it.note ?? "", it.nruns, ns, it.w - 32), ncol = ns.c === it.color ? col : ns.c; let ny = it.h - nh + 8; for (const ln of nl) { const cy = ny + ln.h / 2; ny += ln.h; await drawRich(ln, it.note ?? "", ox + it.w / 2 - ln.w / 2, cy, ns, ncol, false); } }
+    const ncol = ns.c === it.color ? col : ns.c; for (const p of placeLines(it, "note")) await drawRich(p.ln, it.note ?? "", p.sx, p.y, ns, ncol, false, 0); }
 }
 async function listPdf(pdf: PDFDocument, d: Doc, cache: Cache) {
   const font = await getFont(pdf, "Calibri", false, false, cache), bold = await getFont(pdf, "Calibri", true, false, cache), PW = 595, PH = 842, M = 50, LH = 20, size = 12;
@@ -105,5 +105,6 @@ export async function buildPdf(d: Doc, o: { view: "map" | "list"; box?: Box; gri
       page.drawSvgPath(`M${e.x},${e.y}L${bx + px * 5},${by + py * 5}L${bx - px * 5},${by - py * 5}Z`, { x: X(0), y: Y(0), color: rgbOf(c.color) }); }
   }
   for (const id of d.order) { const it = d.items[id]; if (it) await drawItem(pdf, page, it, X(it.x), Y(it.y), dark, cache); }
+  for (const s of d.ink ?? []) page.drawSvgPath(inkPath(s.pts), { x: X(0), y: Y(0), borderColor: rgbOf(s.c), borderWidth: s.w, borderOpacity: s.o, borderLineCap: 1 as any });
   return pdf.save();
 }

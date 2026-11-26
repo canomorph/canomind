@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { Doc, Item, buildTree, connEnds, emptyDoc, itemLabel, mkItem, pageOf, uid } from "./model";
+import { Doc, Item, buildTree, connEnds, emptyDoc, growToFit, itemLabel, mkItem, pageOf, uid } from "./model";
 import type { Tab } from "./store";
 import { Tree, autoPage, treeToDoc } from "./templates";
 
@@ -16,7 +16,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 export async function exportXMind(tb: Tab) {
   const topic = (n: Tree): any => ({ id: uid(), class: "topic", title: n.t, ...(n.c.length ? { children: { attached: n.c.map(topic) } } : {}) });
   const sheets = pagesOf(tb).map((p) => ({ id: uid(), class: "sheet", title: p.name, rootTopic: topic(treeOf(p.doc, p.name)) }));
-  const z = new JSZip(); z.file("content.json", JSON.stringify(sheets)); z.file("metadata.json", JSON.stringify({ creator: { name: "CanoMind", version: "0.9.0" } })); z.file("manifest.json", JSON.stringify({ "file-entries": { "content.json": {}, "metadata.json": {} } }));
+  const z = new JSZip(); z.file("content.json", JSON.stringify(sheets)); z.file("metadata.json", JSON.stringify({ creator: { name: "CanoMind", version: "1.0.0" } })); z.file("manifest.json", JSON.stringify({ "file-entries": { "content.json": {}, "metadata.json": {} } }));
   return z.generateAsync({ type: "uint8array" });
 }
 export async function importXMind(z: JSZip): Promise<{ name: string; doc: Doc }[]> {
@@ -79,3 +79,16 @@ export async function importVsdx(z: JSZip): Promise<{ name: string; doc: Doc }[]
   return out;
 }
 export type { Item };
+
+// ---- Markdown: headings and lists become a mind map; plain text becomes a notepad box ----
+export function importMD(text: string, name: string): Doc {
+  const clean = (s: string) => s.replace(/\*\*|__|`/g, "").replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)").trim(), roots: Tree[] = [], stack: { d: number; n: Tree }[] = []; let cur = 0, structured = false;
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    const h = /^(#{1,6})\s+(.*)$/.exec(raw), li = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(raw); let d: number, txt: string;
+    if (h) { d = h[1].length; txt = h[2]; cur = d; } else if (li) { d = cur + 1 + Math.floor(li[1].replace(/\t/g, "  ").length / 2); txt = li[3]; } else continue;
+    structured = true; const n: Tree = { t: clean(txt), c: [] }; while (stack.length && stack[stack.length - 1].d >= d) stack.pop();
+    (stack.length ? stack[stack.length - 1].n.c : roots).push(n); stack.push({ d, n });
+  }
+  if (!structured) { const it = mkItem("notepad", 60, 60, 520, 300, text.trim()); Object.assign(it, growToFit(it)); const d = emptyDoc(); d.items[it.id] = it; d.order.push(it.id); return autoPage(d); }
+  return autoPage(treeToDoc(roots.length === 1 ? roots[0] : { t: name, c: roots }));
+}

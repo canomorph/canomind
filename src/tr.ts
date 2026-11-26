@@ -406,6 +406,32 @@ Horizontal auto layout|Yatay otomatik yerleşim
 Vertical auto layout|Dikey otomatik yerleşim
 Auto layout|Otomatik yerleşim
 Entire page|Sayfanın tamamı
-Image|Görsel`;
+Image|Görsel
+Text effect|Metin efekti
+Outline|Anahat
+Effect color|Efekt rengi
+Size|Boyut
+Thickness|Kalınlık
+Pen|Kalem
+Highlighter|Fosforlu kalem
+Eraser|Silgi
+Themes|Temalar
+Text direction|Metin yönü
+Move Front/Back|Öne/Arkaya taşı
+Insert link|Bağlantı ekle
+Text to display|Görünecek metin
+Link|Bağlantı
+Green|Yeşil
+Blue|Mavi
+Indigo|Çivit
+Purple|Mor
+Pink|Pembe
+Red|Kırmızı
+Orange|Turuncu
+Gold|Altın
+Teal|Camgöbeği
+Brown|Kahverengi
+Slate|Gri-mavi
+Mind map (words)|Zihin haritası (kelimeler)`;
 export const tr: Record<string, string> = {};
 pairs.split("\n").forEach((l) => { const i = l.indexOf("|"); if (i > 0) tr[l.slice(0, i)] = l.slice(i + 1); });

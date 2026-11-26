@@ -1,30 +1,13 @@
+<div align="center">
+
 # CanoMind
 
 **Hafif ve çok platformlu bir zihin haritası ve diyagram editörü.**
 Zihin haritaları, akış şemaları, organizasyon şemaları, Gantt planları ve daha fazlası, tek bir hızlı masaüstü uygulamasında.
 
-`100% Free` `Windows` `macOS` `Linux` `License: MIT` `Status: v0.9.0`
+[English](README.md) · Sürüm 1.0.0 · Canomorph Creative
 
-#### [Click for English](README.md)
-
-## Ekran Görüntüleri
-<img width="800" alt="Ekran görüntüsü 2026-11-16 205500" src="https://github.com/user-attachments/assets/7fb37fe9-2597-414c-956b-2ca7172355e4" />
-<img width="400" alt="Ekran görüntüsü 2026-11-16 210724" src="https://github.com/user-attachments/assets/131ca468-a7eb-4f95-be36-75b90a071866" />
-<img width="400" alt="Ekran görüntüsü 2026-11-16 205754" src="https://github.com/user-attachments/assets/fd7fa7ba-4699-498d-a099-1e2fe80c24a3" />
-<img width="400" alt="Ekran görüntüsü 2026-11-16 205844" src="https://github.com/user-attachments/assets/67704f8d-d3d0-4aae-9599-b227df921249" />
-<img width="400" alt="Ekran görüntüsü 2026-11-16 205647" src="https://github.com/user-attachments/assets/7ea8fe4a-44ea-461b-b9d1-7e17e9e42fe6" />
-
-## 📦 İndir
-
-| İşletim Sistemi | Dosya Formatı | Bağlantı |
-|----------|--------|-------|
-| **Windows** | `.exe` / `.msi` / `portable.zip`  | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases) |
-| **macOS** | `.dmg` / `build.zip with .app` | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases)  |
-| **Linux** | `.appimage` / `.deb` / `build.zip` | ✅ Resmi derleme — [Releases](https://github.com/canomorph/canomind/releases)  |
-
-Programın gördüğü talebe bağlı olarak mobil sürüm için çalışılacaktır.
-
-Latest release: **v0.9.0**
+</div>
 
 ---
 
@@ -37,6 +20,7 @@ CanoMind, Visio, XMind, MindManager ve Gantt araçlarının üretim gücünü mo
 ### Oluştur
 - **Tek tıkla zihin haritası:** bir kutuyu seçip **+** ile bağlı alt konu ekle ya da **+** işaretini başka bir kutuya sürükleyerek bağla. Alt konular otomatik numaralanır (1, 1.1, 1.1.1).
 - **30'dan fazla şekil**, ayrıca akış şeması, ok ve balon setleri. Sürükle-bırak ya da tıklayarak yerleştirilir.
+- **Sadece kelimelerden zihin haritaları:** üzerine gelince **+** işaretleri çıkan düz metin ögeleri.
 - **Tablolar, grafikler** (sütun, çubuk, çizgi, pasta, halka, alan), **yapılacak kutuları**, not defteri, yapışkan not, görsel ve bağlantılar.
 - **Kutu içinde not ve görsel.** Kutular büyüyerek hiçbir yazının dışarı taşmasını önler.
 - **Şablonlar:** zihin haritası, yapılacaklar listesi, etkinlik planlayıcı, SWOT, Eisenhower matrisi, artılar ve eksiler, iş modeli tuvali, Kanban, balık kılçığı, akış şeması, organizasyon şeması, Gantt planı ve zaman çizelgesi.
@@ -46,6 +30,8 @@ CanoMind, Visio, XMind, MindManager ve Gantt araçlarının üretim gücünü mo
 - **Office tarzı ribbon.** Pencere küçüldükçe gruplar açılır menülere dönüşür.
 - **Zengin metin:** yalnızca seçili kelimeleri biçimlendir (kalın, italik, renk, boyut, yazı tipi), madde işareti ve numaralandırma, sistem fontları.
 - **Yazım ve dil bilgisi denetimi:** 35 dilde, çevrimdışı çalışır. Word'e benzer seçenekler sunar.
+- Metin anahattı ve gölgesi, metin yönü, kutu içinde anlık düzenleme (imleç ve seçimle).
+- **Temalar:** tek tıkla tüm zihin haritalarını yeniden renklendirir (ana renk ve pastel alt kutular).
 - Dolgu, çizgi ve saydamlık ayarları. Eklenebilen, silinebilen ve sıralanabilen hızlı stiller ve renk şemaları.
 - Hizalama, gruplama, kilitleme, biçim boyacısı, geri alma ve yineleme, sağ tık menüsü.
 
@@ -55,16 +41,17 @@ CanoMind, Visio, XMind, MindManager ve Gantt araçlarının üretim gücünü mo
 - Sayfa boyutu işaretli cetvel, dört grid türü, arka plan rengi ve görselleri.
 - **Gezinti bölmesi:** haritan liste olarak görünür, arama yapılabilir.
 - Her kutuya yorum eklenebilir.
+- **Çizim:** kalem, fosforlu kalem ve silgi; kalınlık ve opaklık ayarlı.
 
 ### Sun ve paylaş
 - **Sunum modu:** her kutu bir sayfa, görseller üstte, notlar altta.
 - Tam ekran modu ve yazdırma.
-- **Açma ve içe aktarma:** `.canomind`, XMind (`.xmind`), FreeMind (`.mm`), Visio (`.vsdx`, temel).
+- **Açma ve içe aktarma:** `.canomind`, XMind (`.xmind`), FreeMind (`.mm`), Visio (`.vsdx`, temel), Markdown (`.md`).
 - **Kaydetme ve dışa aktarma:** `.canomind`, XMind, FreeMind, Visio, PDF (vektör, seçilebilir yazı), Markdown, PNG, JPG, SVG, JSON.
 
 ### Sana göre ayarla
 - Temalar: açık, sepya, koyu ve siyah.
-- Arayüz dilleri: İngilizce ve Türkçe. Yazım denetimi dili ayrıdır.
+- Arayüz dilleri: İngilizce, Türkçe ve Çince. Yazım denetimi dili ayrıdır.
 - Ayarlanabilir arayüz ölçeği ve Enter tuşu davranışı.
 
 ## Klavye kısayolları
@@ -101,4 +88,9 @@ Tauri 2 (Rust) · React · TypeScript · Vite · Zustand · pdf-lib · JSZip · 
 
 ## Notlar
 
+- MindManager (`.mmap`), kullanımına izin veren herkese açık bir dosya biçimi şartnamesi olmadığı için desteklenmiyor.
 - Visio desteği şekilleri, yazıları ve bağlayıcıları kapsar, Visio'nun tüm özelliklerini değil.
+
+## Lisans
+
+Lisansınızı buraya ekleyin.

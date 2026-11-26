@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CanoMind",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "identifier": "app.canomind",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -30,12 +30,8 @@
   "bundle": {
     "active": true,
     "targets": [
-        "dmg",
-        "app",
-        "deb",
-        "appimage",
-        "msi",
-        "nsis"
+      "msi",
+      "nsis"
     ],
     "icon": [
       "icons/32x32.png",
@@ -43,11 +39,8 @@
       "icons/128x128@2x.png",
       "icons/icon.png",
       "icons/icon.ico"
-   ],
-  "macOS": {
-    "signingIdentity": "-"
-  },
-  "windows": {
+    ],
+    "windows": {
       "nsis": {
         "installerHooks": "./installer-hooks.nsh",
         "installMode": "currentUser",

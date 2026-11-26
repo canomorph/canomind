@@ -5,7 +5,7 @@ import JSZip from "jszip";
 import { renderToStaticMarkup } from "react-dom/server";
 import { t } from "./i18n";
 import { Doc, bounds, gridPatternSvg, listLines, lum, pageOf } from "./model";
-import { exportMM, exportVsdx, exportXMind, importMM, importVsdx, importXMind } from "./formats";
+import { exportMM, exportVsdx, exportXMind, importMD, importMM, importVsdx, importXMind } from "./formats";
 import { buildPdf } from "./pdf";
 import { DocBody } from "./render";
 import { Tab, curTab, needsSave, useDocs } from "./store";
@@ -15,7 +15,7 @@ export interface Box { x: number; y: number; w: number; h: number }
 export interface SaveOpts { view: "map" | "list"; area: "all" | "visible"; grid: boolean }
 export const FORMATS = [{ id: "canomind", name: "CanoMind (.canomind)" }, { id: "png", name: "PNG (.png)" }, { id: "jpg", name: "JPEG (.jpg)" }, { id: "pdf", name: "PDF (.pdf)" }, { id: "svg", name: "SVG (.svg)" }, { id: "md", name: "Markdown (.md)" }, { id: "json", name: "JSON (.json)" }, { id: "xmind", name: "XMind (.xmind)" }, { id: "mm", name: "FreeMind (.mm)" }, { id: "vsdx", name: "Visio (.vsdx)" }];
 
-export const EXPORT_ORDER: [string, string][] = [["canomind", "CanoMind"], ["mm", "FreeMind"], ["xmind", "XMind"], ["vsdx", "Visio"], ["pdf", "PDF"], ["md", "Markdown"], ["png", "PNG"], ["jpg", "JPG"], ["svg", "SVG"], ["json", "JSON"]];
+export const EXPORT_ORDER: [string, string][] = [["canomind", "CanoMind"], ["mm", "FreeMind"], ["xmind", "XMind"], ["vsdx", "Visio"], ["pdf", "PDF"], ["png", "PNG"], ["jpg", "JPG"], ["svg", "SVG"], ["md", "Markdown"], ["json", "JSON"]];
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const baseName = (p: string) => (p.split(/[\\/]/).pop() || p).replace(/\.\w+$/, "");
 const base = (tb: Tab) => tb.name.replace(/[^\w\- ]+/g, "") || "canomind";
@@ -115,7 +115,7 @@ async function importContent(name: string, ext: string, text: () => Promise<stri
   let docs: { name: string; doc: Doc }[] = [];
   try {
     if (ext === "canomind" || ext === "json") { openText(await text(), name, path); return; }
-    if (ext === "mm") docs = importMM(await text()); else if (ext === "xmind") docs = await importXMind(await zip()); else if (ext === "vsdx") docs = await importVsdx(await zip()); else throw new Error("unsupported file type");
+    if (ext === "mm") docs = importMM(await text()); else if (ext === "xmind") docs = await importXMind(await zip()); else if (ext === "vsdx") docs = await importVsdx(await zip()); else if (ext === "md" || ext === "markdown") docs = [{ name: "Page-1", doc: importMD(await text(), name) }]; else throw new Error("unsupported file type");
   } catch (e: any) { alert(t("Import failed: ") + (e?.message || e)); return; }
   if (!docs.length) { alert(t("Nothing to import.")); return; }
   if (docs.length === 1) useDocs.getState().newTab(name, docs[0].doc); else useDocs.getState().openPages(name, docs);
@@ -129,12 +129,12 @@ async function importPath(p: string) {
 }
 export async function importDialog(fallback: () => void) {
   if (!isTauri()) return fallback();
-  try { const p = await openDlg({ multiple: false, filters: [{ name: t("All supported files"), extensions: ["canomind", "json", "xmind", "mm", "vsdx"] }, { name: "CanoMind", extensions: ["canomind", "json"] }, { name: "XMind", extensions: ["xmind"] }, { name: "FreeMind", extensions: ["mm"] }, { name: "Visio", extensions: ["vsdx"] }] }); if (typeof p === "string") await importPath(p); }
+  try { const p = await openDlg({ multiple: false, filters: [{ name: t("All supported files"), extensions: ["canomind", "json", "xmind", "mm", "vsdx", "md", "markdown"] }, { name: "CanoMind", extensions: ["canomind", "json"] }, { name: "XMind", extensions: ["xmind"] }, { name: "FreeMind", extensions: ["mm"] }, { name: "Visio", extensions: ["vsdx"] }, { name: "Markdown", extensions: ["md", "markdown"] }] }); if (typeof p === "string") await importPath(p); }
   catch (e) { alert(String(e)); }
 }
 export const openAny = () => importDialog(() => document.getElementById("canomind-open")?.click());
 export async function handleFiles(fl: FileList) {
-  for (const f of Array.from(fl)) { if (/\.(canomind|json|xmind|mm|vsdx)$/i.test(f.name)) await importFile(f); else if (f.type.startsWith("image/") && !useDocs.getState().start) await addImage(f); }
+  for (const f of Array.from(fl)) { if (/\.(canomind|json|xmind|mm|vsdx|md|markdown)$/i.test(f.name)) await importFile(f); else if (f.type.startsWith("image/") && !useDocs.getState().start) await addImage(f); }
 }
 export async function bootOpen() {
   if (isTauri()) {

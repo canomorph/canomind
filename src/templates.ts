@@ -2,7 +2,7 @@ import { A4L, Conn, Doc, Item, Kind, autoLayout, emptyDoc, mkItem, uid } from ".
 const B = () => {
   const d = emptyDoc();
   const add = (k: Kind, x: number, y: number, w: number, h: number, t = "", ex: Partial<Item> = {}) => { const it = mkItem(k, x, y, w, h, t, ex); d.items[it.id] = it; d.order.push(it.id); return it.id; };
-  const link = (a: string, b: string, style: Conn["style"] = "curve") => { const id = uid(); d.conns[id] = { id, from: a, to: b, style, arrow: style !== "curve", dash: false, color: "#6b7280" }; };
+  const link = (a: string, b: string, style: Conn["style"] = "curve", dash = false) => { const id = uid(); d.conns[id] = { id, from: a, to: b, style, arrow: style !== "curve" && !dash, dash, color: "#6b7280" }; };
   return { d, add, link };
 };
 export interface Tree { t: string; c: Tree[] }
@@ -14,6 +14,13 @@ export function treeToDoc(tr: Tree): Doc {
     const id = add(depth ? "round" : "ellipse", 0, y, w, depth ? 44 : 64, n.t, depth ? { fill: "#ffffff" } : { fill: "#079a4a", color: "#ffffff", bold: true }); y += 60;
     if (pid) link(pid, id); n.c.forEach((k) => go(k, depth + 1, id));
   };
+  go(tr, 0); return autoLayout(d);
+}
+// Mind map made of plain words (no boxes): text items joined by connectors
+export function treeToWords(tr: Tree): Doc {
+  const { d, add, link } = B(); let y = 0;
+  const go = (n: Tree, depth: number, pid?: string) => { const fs = depth === 0 ? 24 : depth === 1 ? 18 : 16, w = Math.max(60, n.t.length * fs * 0.55 + 24), h = fs * 1.25 + 14;
+    const id = add("text", 0, y, w, h, n.t, { fs, bold: depth === 0, color: depth === 0 ? "#079a4a" : "#1a1a1a" }); y += h + 12; if (pid) link(pid, id); n.c.forEach((k) => go(k, depth + 1, id)); };
   go(tr, 0); return autoLayout(d);
 }
 // Imported / legacy documents: keep sizes, move content away from the page edge and grow the page when needed.
@@ -39,6 +46,7 @@ const mk = (id: string, name: string, icon: string, raw: () => Doc): Template =>
 export const TEMPLATES: Template[] = [
   { id: "blank", name: "Blank", icon: "new", build: () => ({ ...emptyDoc(), page: A4L }) },
   mk("mindmap", "Mind map", "child", () => treeToDoc(T("Main topic", ...["Idea A", "Idea B", "Idea C", "Idea D"].map((n) => T(n, T(n + ".1"), T(n + ".2")))))),
+  mk("wordmap", "Mind map (words)", "child", () => treeToWords(T("Main topic", ...["Idea A", "Idea B", "Idea C", "Idea D"].map((n) => T(n, T(n + ".1"), T(n + ".2")))))),
   mk("todo", "To-do List", "todo", () => {
     const { d, add } = B(); add("text", 0, 0, 300, 40, "To-do List", { bold: true, fs: 24 });
     ["Plan the week", "Reply to emails", "Prepare the presentation", "Buy groceries", "Call the dentist", "Read 20 pages"].forEach((n, i) => add("todo", 0, 56 + i * 54, 360, 44, n, { done: i < 2, ha: "left" }));
@@ -81,7 +89,14 @@ export const TEMPLATES: Template[] = [
       add("round", X0 + s * wk + 4, y + 4, l * wk - 8, 24, "", { fill: c, stroke: c, gt: { k: "bar", r: i, c: s, s: l } }); });
     return d; }),
   mk("timeline", "Timeline", "arrow", () => {
-    const { d, add, link } = B(); add("rect", 0, 116, 4 * 180 + 36, 4, "", { fill: "#9aa0a6", stroke: "#9aa0a6", sw: 0 });
-    ["Kickoff", "Design", "Build", "Test", "Launch"].forEach((n, i) => { const m = add("ellipse", i * 180, 100, 36, 36, String(i + 1), { fill: "#079a4a", color: "#ffffff", fs: 14 });
-      link(m, add("text", i * 180 - 40, 150, 116, 30, n), "straight"); link(m, add("text", i * 180 - 40, 60, 116, 30, `Q${i + 1}`, { fs: 13 }), "straight"); }); return d; }),
+    const { d, add, link } = B(), Y = 300, cats: Record<string, string> = { Milestone: "#079a4a", Task: "#fb8c00", Release: "#1e88e5" };
+    add("rect", 0, Y - 3, 1000, 6, "", { fill: "#9aa0a6", stroke: "#9aa0a6", sw: 0 });
+    for (let i = 0; i <= 10; i++) { add("rect", i * 100 - 1, Y - 8, 2, 16, "", { fill: "#9aa0a6", stroke: "#9aa0a6", sw: 0 }); add("text", i * 100 - 30, Y + 12, 60, 22, String(2020 + i * 2), { fs: 12, color: "#6b7280" }); }
+    ([[0.5, "Kickoff", "Milestone", 1, 0], [2.4, "Research done", "Task", 1, 1], [4.3, "Prototype", "Milestone", 1, 0], [6.2, "Beta release", "Release", 1, 1], [8.4, "Launch", "Milestone", 1, 0],
+      [1.4, "Budget approved", "Task", -1, 0], [3.3, "Design review", "Task", -1, 1], [5.3, "Testing", "Task", -1, 0], [7.3, "Feedback", "Task", -1, 1], [9.3, "Wrap-up", "Task", -1, 0]] as [number, string, string, number, number][]).forEach(([pos, n, c, dir, lv]) => {
+      const x = pos * 100, y = dir > 0 ? Y - 80 - lv * 52 : Y + 50 + lv * 52, m = add("ellipse", x - 7, Y - 7, 14, 14, "", { fill: cats[c], stroke: cats[c], sw: 0 }), b = add("round", Math.max(0, x - 75), y, 150, 38, n, { fill: cats[c], stroke: cats[c], color: "#ffffff", fs: 13 });
+      link(m, b, "straight", true); });
+    add("rect", 0, Y + 200, 480, 28, "Phase 1: Plan", { fill: "#212121", stroke: "#212121", color: "#ffffff", bold: true, fs: 13 }); add("rect", 500, Y + 200, 500, 28, "Phase 2: Build and launch", { fill: "#212121", stroke: "#212121", color: "#ffffff", bold: true, fs: 13 });
+    Object.entries(cats).forEach(([n, c], i) => { add("rect", i * 130, Y - 200, 14, 14, "", { fill: c, stroke: c, sw: 0 }); add("text", i * 130 + 18, Y - 205, 100, 24, n, { fs: 13, ha: "left" }); });
+    return d; }),
 ];

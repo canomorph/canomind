@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Kind, baseStyle, defSize, gridPatternSvg, growToFit, layoutText, lum, pageOf, shiftRuns } from "../model";
-import { ConnView, Defs, ItemView } from "../render";
+import { textW } from "../measure";
+import { Kind, PLine, Run, TStyle, baseStyle, defSize, gridPatternSvg, growToFit, inkPath, layoutText, lum, pageOf, placeLines, rangeW, rotXform, shiftRuns, toVirtual, uid } from "../model";
+import { ConnView, Defs, InkView, ItemView } from "../render";
 import { curTab, useDocs, useIsDark, useSettings } from "../store";
 import { Checker, loadSpell } from "../spell";
 
@@ -12,21 +13,41 @@ const rectFrom = (o: R, h: string, w: { x: number; y: number }, f: (v: number) =
   if (h.includes("n")) y1 = Math.min(f(w.y), y2 - 20); if (h.includes("s")) y2 = Math.max(f(w.y), y1 + 20);
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 };
+// ---- caret / selection geometry of the text being edited (same layout as the drawn text) ----
+const prefW = (p: PLine, b: TStyle) => (p.ln.prefix ? textW(p.ln.prefix, b.z, b.f, b.b, b.i) : 0);
+function caretXY(pls: PLine[], text: string, b: TStyle, runs: Run[] | undefined, idx: number) {
+  let li = pls.findIndex((p) => idx <= p.ln.end); if (li < 0) li = pls.length - 1; const p = pls[li], i = Math.max(p.ln.start, Math.min(idx, p.ln.end));
+  return { x: p.sx + prefW(p, b) + rangeW(text, p.ln.start, i, b, runs), y: p.y, h: p.h, li };
+}
+function indexAt(pls: PLine[], text: string, b: TStyle, runs: Run[] | undefined, vx: number, vy: number) {
+  let li = pls.findIndex((p) => vy < p.y + p.h); if (li < 0) li = pls.length - 1; const p = pls[li], pw = prefW(p, b); let best = p.ln.start, bd = 1e9;
+  for (let k = p.ln.start; k <= p.ln.end; k++) { const d = Math.abs(p.sx + pw + rangeW(text, p.ln.start, k, b, runs) - vx); if (d < bd) { bd = d; best = k; } } return best;
+}
+const taSel = (ta: HTMLTextAreaElement) => { const back = ta.selectionDirection === "backward"; return { anchor: back ? ta.selectionEnd : ta.selectionStart, focus: back ? ta.selectionStart : ta.selectionEnd }; };
+const setTa = (ta: HTMLTextAreaElement, a: number, f: number) => { ta.setSelectionRange(Math.min(a, f), Math.max(a, f), f < a ? "backward" : "forward"); useDocs.getState().setSelRange({ s: Math.min(a, f), e: Math.max(a, f) }); };
+
 export function Canvas() {
   const tab = useDocs((s) => curTab(s)), sel = useDocs((s) => s.sel), tool = useDocs((s) => s.tool), editing = useDocs((s) => s.editing), editSub = useDocs((s) => s.editSub), bgEdit = useDocs((s) => s.bgEdit), bgSel = useDocs((s) => s.bgSel), spell = useDocs((s) => s.spell);
+  const selRange = useDocs((s) => s.selRange), inkTool = useDocs((s) => s.inkTool), inkCfg = useDocs((s) => s.inkCfg);
   const { snap, spellLang, spellOpts, enterMode } = useSettings(), themeDark = useIsDark(), { doc, view } = tab, grid = tab.grid, A = useDocs.getState, pg = pageOf(doc), bgDelMode = useDocs((s) => s.bgDelMode), bgMarks = useDocs((s) => s.bgMarks);
   const bgc = doc.bg?.color, dark = bgc ? lum(bgc) < 0.45 : themeDark, bgImgs = doc.bg?.imgs ?? [];
   const taRef = useRef<HTMLTextAreaElement>(null), root = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), drag = useRef<any>(null);
   const [ghost, setGhost] = useState<any>(null), [line, setLine] = useState<any>(null), [edge, setEdge] = useState<{ d: "r" | "b"; x: number; y: number } | null>(null), [gh, setGh] = useState(false), [gv, setGv] = useState(false), [tv, setTv] = useState(false), [sp, setSp] = useState<{ sp: Checker; lang: string } | null>(null);
+  const [hov, setHov] = useState<string | null>(null), [inkLive, setInkLive] = useState<{ pts: [number, number][]; c: string; w: number; o: number; hl: boolean } | null>(null);
   useEffect(() => { let alive = true; setSp(null); if (spell) loadSpell(spellLang).then((ck) => { if (alive && ck) setSp({ sp: ck, lang: spellLang }); }); return () => { alive = false; }; }, [spell, spellLang]);
+  const ed = editing ? doc.items[editing] : null, isCell = editSub?.k === "cell", field: "text" | "note" = editSub?.k === "note" ? "note" : "text";
+  const eg = ed && !isCell ? { pls: placeLines(ed, field), base: baseStyle(ed, field), text: field === "note" ? ed.note ?? "" : ed.text, runs: field === "note" ? ed.nruns : ed.runs } : null;
   const heads = Object.values(doc.items).filter((i) => i.gt?.k === "head"), lastHead = heads.length ? heads.reduce((a, b) => (b.gt!.c! > a.gt!.c! ? b : a)) : null;
   const rows = Object.values(doc.items).filter((i) => i.gt?.k === "label" && i.gt.r! >= 0), lastRow = rows.length ? rows.reduce((a, b) => (b.gt!.r! > a.gt!.r! ? b : a)) : null;
-  const todos = Object.values(doc.items).filter((i) => i.kind === "todo"), lastTodo = todos.length ? todos.reduce((a, b) => (b.y > a.y ? b : a)) : null;
+  const childIds = new Set(Object.values(doc.conns).map((c) => c.to)), allTodos = Object.values(doc.items).filter((i) => i.kind === "todo"), listTodos = allTodos.filter((t) => !childIds.has(t.id)), todos = listTodos.length ? listTodos : allTodos;
+  const lastTodo = todos.length ? todos.reduce((a, b) => (b.y > a.y ? b : a)) : null;
   const edgeAt = (w: { x: number; y: number }): "r" | "b" | null => { const b = 10 / view.k; if (w.y >= 0 && w.y <= pg.h + b && w.x >= pg.w - b && w.x <= pg.w + b) return "r"; if (w.x >= 0 && w.x <= pg.w + b && w.y >= pg.h - b && w.y <= pg.h + b) return "b"; return null; };
   const toW = (e: { clientX: number; clientY: number }) => { const r = svg.current!.getBoundingClientRect(); return { x: (e.clientX - r.left - view.x) / view.k, y: (e.clientY - r.top - view.y) / view.k }; };
   const sn = (v: number) => (snap ? Math.round(v / 10) * 10 : v);
   const viewRef = useRef(view); viewRef.current = view;
   const grp = (id: string) => { const g = doc.items[id]?.g; return g ? doc.order.filter((i) => doc.items[i].g === g) : [id]; };
+  const idxAt = (w: { x: number; y: number }) => { if (!eg || !ed) return 0; let lx = w.x - ed.x, ly = w.y - ed.y; if (field === "text") [lx, ly] = toVirtual(ed, lx, ly); return indexAt(eg.pls, eg.text, eg.base, eg.runs, lx, ly); };
+  const inItem = (w: { x: number; y: number }) => !!ed && w.x >= ed.x && w.x <= ed.x + ed.w && w.y >= ed.y && w.y <= ed.y + ed.h;
   useEffect(() => {
     const el = svg.current!, ro = new ResizeObserver(() => A().setSize({ w: root.current!.clientWidth, h: root.current!.clientHeight })); ro.observe(root.current!);
     const f = (e: WheelEvent) => { e.preventDefault(); const v = viewRef.current, r = el.getBoundingClientRect();
@@ -39,9 +60,17 @@ export function Canvas() {
 
   const down = (e: React.PointerEvent) => {
     const tg = e.target as Element, S = A(); if (tg.tagName === "TEXTAREA" || e.button === 2) return;
-    if (S.editing) S.setEditing(null);
     const w = toW(e);
+    if (editing && eg && e.button === 0 && !e.altKey && inItem(w)) { // click / drag inside the text being edited: place caret or select
+      e.preventDefault(); const i = idxAt(w), ta = taRef.current; if (ta) { const a = e.shiftKey ? taSel(ta).anchor : i; ta.focus(); setTa(ta, a, i); drag.current = { t: "tsel", a }; cap(e); } return;
+    }
+    if (S.editing) S.setEditing(null);
     if (e.button === 1 || (e.button === 0 && e.altKey)) { e.preventDefault(); drag.current = { t: "pan", ox: e.clientX - view.x, oy: e.clientY - view.y }; cap(e); return; }
+    if (S.inkTool) {
+      const cfg = S.inkCfg[S.inkTool === "hl" ? "hl" : "pen"];
+      if (S.inkTool === "erase") { S.eraseAt(w.x, w.y, 10 / view.k, true); drag.current = { t: "erase" }; } else { drag.current = { t: "ink", pts: [[w.x, w.y]] }; setInkLive({ pts: [[w.x, w.y]], ...cfg, hl: S.inkTool === "hl" }); }
+      cap(e); return;
+    }
     if (tg.closest("[data-gadd]")) { S.ganttAdd(); return; }
     if (tg.closest("[data-gdel]")) { S.ganttDel(); return; }
     if (tg.closest("[data-gradd]")) { S.ganttRowAdd(); return; }
@@ -55,10 +84,10 @@ export function Canvas() {
       if (bi) { const id = bi.getAttribute("data-bg")!, im = bgImgs.find((i) => i.id === id); if (im) { useDocs.setState({ bgSel: id }); drag.current = { t: "bgmove", s: w, o: { x: im.x, y: im.y }, id, rec: false }; cap(e); } return; }
       useDocs.setState({ bgEdit: false, bgSel: null }); return;
     }
-    const eg = edgeAt(w); if (eg) { S.expandPage(eg); return; }
+    const eg2 = edgeAt(w); if (eg2) { S.expandPage(eg2); return; }
     if (typeof S.tool === "object") { drag.current = { t: "place", s: w, kind: S.tool.place }; setGhost({ x: w.x, y: w.y, w: 0, h: 0 }); cap(e); return; }
     const plus = tg.closest("[data-plus]");
-    if (plus) { e.preventDefault(); drag.current = { t: "plus", a: S.sel[0], dir: plus.getAttribute("data-plus"), sx: e.clientX, sy: e.clientY, moved: false }; cap(e); return; }
+    if (plus) { e.preventDefault(); drag.current = { t: "plus", a: plus.getAttribute("data-pid") || S.sel[0], dir: plus.getAttribute("data-plus"), sx: e.clientX, sy: e.clientY, moved: false }; cap(e); return; }
     const hd = tg.closest("[data-handle]"); if (hd) { const id = S.sel[0]; if (doc.items[id]?.lock) return; drag.current = { t: "resize", h: hd.getAttribute("data-handle"), o: { ...doc.items[id] }, id, rec: false }; cap(e); return; }
     const ck = tg.closest("[data-check]");
     if (ck) { const cid = ck.closest("[data-id]")?.getAttribute("data-id"); if (cid && doc.items[cid]) { S.patch([cid], { done: !doc.items[cid].done }, true); S.setSel([cid]); } return; }
@@ -76,14 +105,20 @@ export function Canvas() {
   };
   const move = (e: React.PointerEvent) => {
     const d = drag.current; const w = toW(e), S = A();
-    if (!d) { const eg = S.bgEdit || S.bgDelMode ? null : edgeAt(w); setEdge(eg ? { d: eg, x: w.x, y: w.y } : null);
-      setGh(!!lastHead && !S.bgEdit && w.x >= lastHead.x && w.x <= lastHead.x + lastHead.w + 36 / view.k && w.y >= lastHead.y - 30 / view.k && w.y <= lastHead.y + lastHead.h);
-      const g = 36 / view.k; setGv(!!lastRow && !S.bgEdit && w.x >= lastRow.x - g && w.x <= lastRow.x + lastRow.w && w.y >= lastRow.y && w.y <= lastRow.y + lastRow.h + g);
-      setTv(!!lastTodo && !S.bgEdit && w.x >= lastTodo.x && w.x <= lastTodo.x + lastTodo.w + g && w.y >= lastTodo.y && w.y <= lastTodo.y + lastTodo.h + g); return; }
-    if (d.t === "pan") S.setView({ ...view, x: e.clientX - d.ox, y: e.clientY - d.oy });
+    if (!d) { const eg2 = S.bgEdit || S.bgDelMode || S.inkTool ? null : edgeAt(w); setEdge(eg2 ? { d: eg2, x: w.x, y: w.y } : null);
+      const quiet = S.bgEdit || S.inkTool || S.editing;
+      setGh(!!lastHead && !quiet && w.x >= lastHead.x && w.x <= lastHead.x + lastHead.w + 36 / view.k && w.y >= lastHead.y - 30 / view.k && w.y <= lastHead.y + lastHead.h);
+      const g = 36 / view.k; setGv(!!lastRow && !quiet && w.x >= lastRow.x - g && w.x <= lastRow.x + lastRow.w && w.y >= lastRow.y && w.y <= lastRow.y + lastRow.h + g);
+      setTv(!!lastTodo && !quiet && w.x >= lastTodo.x && w.x <= lastTodo.x + lastTodo.w + g && w.y >= lastTodo.y && w.y <= lastTodo.y + lastTodo.h + g);
+      let hid: string | null = null; if (!quiet) { const pad = 28 / view.k; for (let i = doc.order.length - 1; i >= 0; i--) { const it = doc.items[doc.order[i]]; if (it && it.kind === "text" && w.x >= it.x - pad && w.x <= it.x + it.w + pad && w.y >= it.y - pad && w.y <= it.y + it.h + pad) { hid = it.id; break; } } } setHov(hid); return; }
+    if (d.t === "tsel") { const ta = taRef.current; if (ta) setTa(ta, d.a, idxAt(w)); }
+    else if (d.t === "ink") { const l = d.pts[d.pts.length - 1]; if (Math.hypot(w.x - l[0], w.y - l[1]) * view.k > 1.5) { d.pts.push([w.x, w.y]); setInkLive((p) => (p ? { ...p, pts: [...d.pts] } : p)); } }
+    else if (d.t === "erase") S.eraseAt(w.x, w.y, 10 / view.k, false);
+    else if (d.t === "pan") S.setView({ ...view, x: e.clientX - d.ox, y: e.clientY - d.oy });
     else if (d.t === "move") { const dx = w.x - d.s.x, dy = w.y - d.s.y; if (!d.rec && Math.hypot(dx, dy) * view.k < 4) return;
       S.mutate((m) => { for (const id in d.orig) m.items[id] = { ...m.items[id], x: sn(d.orig[id].x + dx), y: sn(d.orig[id].y + dy) }; }, !d.rec); d.rec = true; }
-    else if (d.t === "resize") { const r = rectFrom(d.o, d.h, w, sn); S.mutate((m) => { let it = { ...m.items[d.id], ...r }; const g = growToFit(it); m.items[d.id] = { ...it, ...g }; }, !d.rec); d.rec = true; }
+    else if (d.t === "resize") { const r = rectFrom(d.o, d.h, w, sn), hz = d.h === "e" || d.h === "w", vt = d.h === "n" || d.h === "s", mode = hz ? "resizeW" : vt ? "resizeH" : Math.abs(r.w - d.o.w) >= Math.abs(r.h - d.o.h) ? "resizeW" : "resizeH";
+      S.mutate((m) => { const it = { ...m.items[d.id], ...r }; m.items[d.id] = { ...it, ...growToFit(it, mode) }; }, !d.rec); d.rec = true; }
     else if (d.t === "bgmove") { const dx = w.x - d.s.x, dy = w.y - d.s.y; if (!d.rec && Math.hypot(dx, dy) * view.k < 3) return; S.bgPatch(d.id, { x: d.o.x + dx, y: d.o.y + dy }, !d.rec); d.rec = true; }
     else if (d.t === "bgresize") { S.bgPatch(d.id, rectFrom(d.o, d.h, w), !d.rec); d.rec = true; }
     else if (d.t === "place") setGhost({ x: Math.min(w.x, d.s.x), y: Math.min(w.y, d.s.y), w: Math.abs(w.x - d.s.x), h: Math.abs(w.y - d.s.y) });
@@ -92,6 +127,7 @@ export function Canvas() {
   };
   const up = (e: React.PointerEvent) => {
     const d = drag.current; drag.current = null; setGhost(null); setLine(null); if (!d) return; const w = toW(e), S = A();
+    if (d.t === "ink") { const cfg = S.inkCfg[S.inkTool === "hl" ? "hl" : "pen"]; if (d.pts.length) S.addStroke({ id: uid(), pts: d.pts, c: cfg.c, w: cfg.w, o: cfg.o, hl: S.inkTool === "hl" }); setInkLive(null); return; }
     if (d.t === "place") {
       const small = Math.hypot(w.x - d.s.x, w.y - d.s.y) * view.k < 8, txt = d.kind === "text", [dw, dh] = defSize(d.kind as Kind);
       const x = small ? w.x - dw / 2 : Math.min(w.x, d.s.x), y = small ? w.y - dh / 2 : Math.min(w.y, d.s.y), ww = small ? dw : Math.max(30, Math.abs(w.x - d.s.x)), hh = small ? dh : Math.max(24, Math.abs(w.y - d.s.y));
@@ -110,7 +146,9 @@ export function Canvas() {
     }
   };
   const dbl = (e: React.MouseEvent) => {
-    const id = under(e), it = id ? doc.items[id] : null; if (!id || !it) return; const S = A(), w = toW(e); S.setSel([id]);
+    const w = toW(e);
+    if (editing && eg && inItem(w)) { const ta = taRef.current; if (ta) { const i = idxAt(w), t = eg.text, wc = (c: string) => /[\p{L}\p{N}_]/u.test(c); let s = i, f = i; while (s > 0 && wc(t[s - 1])) s--; while (f < t.length && wc(t[f])) f++; setTa(ta, s, f); } return; }
+    const id = under(e), it = id ? doc.items[id] : null; if (!id || !it) return; const S = A(); S.setSel([id]);
     if (it.kind === "table" && it.tbl) { const c = Math.min(it.tbl.c - 1, Math.max(0, Math.floor((w.x - it.x) / (it.w / it.tbl.c)))), r = Math.min(it.tbl.r - 1, Math.max(0, Math.floor((w.y - it.y) / (it.h / it.tbl.r)))); S.setEditing(id, { k: "cell", r, c }); }
     else if (it.kind === "chart") useDocs.setState({ chartEdit: id });
     else if (it.note !== undefined && w.y > it.y + it.h - (it.nh ?? 0)) S.setEditing(id, { k: "note" });
@@ -120,20 +158,36 @@ export function Canvas() {
   const drop = (e: React.DragEvent) => { const k = e.dataTransfer.getData("text/kind") as Kind; if (!k) return; e.preventDefault(); const w = toW(e), [dw, dh] = defSize(k), S = A();
     const id = S.addItem(k, sn(w.x - dw / 2), sn(w.y - dh / 2), dw, dh, k === "text" ? "Text" : ""); S.setSel([id]); if (k === "text") S.setEditing(id); };
 
-  const items = sel.map((i) => doc.items[i]).filter(Boolean), one = items.length === 1 && sel.length === 1 && !editing && !bgEdit && tool === "select" && !items[0].lock ? items[0] : null, k = view.k, hs = 8 / k, off = 18 / k;
-  const ed = editing ? doc.items[editing] : null, selBg = bgEdit ? bgImgs.find((i) => i.id === bgSel) : null;
+  const items = sel.map((i) => doc.items[i]).filter(Boolean), one = items.length === 1 && sel.length === 1 && !editing && !bgEdit && !inkTool && tool === "select" && !items[0].lock ? items[0] : null, k = view.k, hs = 8 / k, off = 18 / k;
+  const hovItem = hov && doc.items[hov] && !editing && !bgEdit && !bgDelMode && !inkTool && tool === "select" && !one ? doc.items[hov] : null, plusFor = one ?? hovItem;
+  const selBg = bgEdit ? bgImgs.find((i) => i.id === bgSel) : null;
   let er: R | null = null, val = "", onChange: (v: string) => void = () => {};
   if (ed) {
-    if (editSub?.k === "cell" && ed.tbl) { const cw = ed.w / ed.tbl.c, rh = ed.h / ed.tbl.r, rr = editSub.r, cc = editSub.c; er = { x: ed.x + cc * cw, y: ed.y + rr * rh, w: cw, h: rh }; val = ed.tbl.cells[rr]?.[cc] ?? ""; onChange = (v) => A().setCell(ed.id, rr, cc, v); }
-    else if (editSub?.k === "note") { er = { x: ed.x, y: ed.y + ed.h - (ed.nh ?? 34), w: ed.w, h: ed.nh ?? 34 }; val = ed.note ?? ""; onChange = (v) => A().setNote(ed.id, v); }
-    else { er = { x: ed.x, y: ed.y + (ed.ih ?? 0), w: ed.w, h: Math.max(24, ed.h - (ed.ih ?? 0) - (ed.nh ?? 0)) }; val = ed.text; onChange = (v) => A().patch([ed.id], { text: v, runs: shiftRuns(ed.runs, ed.text, v) }); }
+    if (isCell && ed.tbl && editSub?.k === "cell") { const cw = ed.w / ed.tbl.c, rh = ed.h / ed.tbl.r, rr = editSub.r, cc = editSub.c; er = { x: ed.x + cc * cw, y: ed.y + rr * rh, w: cw, h: rh }; val = ed.tbl.cells[rr]?.[cc] ?? ""; onChange = (v) => A().setCell(ed.id, rr, cc, v); }
+    else if (editSub?.k === "note") { er = { x: ed.x, y: ed.y, w: ed.w, h: ed.h }; val = ed.note ?? ""; onChange = (v) => A().setNote(ed.id, v); }
+    else { er = { x: ed.x, y: ed.y, w: ed.w, h: ed.h }; val = ed.text; onChange = (v) => A().patch([ed.id], { text: v, runs: shiftRuns(ed.runs, ed.text, v) }); }
   }
-  const edBase = ed ? baseStyle(ed, editSub?.k === "note" ? "note" : "text") : baseStyle({ fs: 16 } as any, "text"), edTh = ed && er ? layoutText(val, undefined, edBase, Math.max(20, er.w - 28)).reduce((a, l) => a + l.h, 0) : 0, edPad = er ? Math.max(4, (er.h - edTh) / 2 - 3) : 4;
+  const edBase = ed ? baseStyle(ed, field) : baseStyle({ fs: 16 } as any, "text"), cellPad = isCell && er ? Math.max(4, (er.h - layoutText(val, undefined, edBase, Math.max(20, er.w - 28)).reduce((a, l) => a + l.h, 0)) / 2 - 3) : 4;
   useEffect(() => { const t = taRef.current; if (t) { t.focus(); t.select(); } }, [editing, JSON.stringify(editSub)]);
-  useEffect(() => { const t = taRef.current, r = A().selRange; if (t && r && r.e > r.s) { t.focus(); t.setSelectionRange(r.s, r.e); } }, [ed?.runs, ed?.nruns, ed?.ns]);
+  useEffect(() => { const t = taRef.current, r = A().selRange; if (t && r) { t.focus(); t.setSelectionRange(r.s, r.e); } }, [ed?.runs, ed?.nruns, ed?.ns, ed?.te, ed?.tes]);
+  const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const mod = e.ctrlKey || e.metaKey, fin = e.key === "Enter" && (mod || (enterMode === "finish" && !e.shiftKey)); if (e.key === "Escape" || fin) { e.preventDefault(); A().setEditing(null); return; }
+    if (!eg || mod || !["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+    e.preventDefault(); const ta = e.currentTarget, { anchor, focus } = taSel(ta), c = caretXY(eg.pls, eg.text, eg.base, eg.runs, focus); let nf = focus;
+    if (e.key === "Home") nf = eg.pls[c.li].ln.start; else if (e.key === "End") nf = eg.pls[c.li].ln.end;
+    else { const t2 = eg.pls[c.li + (e.key === "ArrowDown" ? 1 : -1)]; nf = t2 ? indexAt(eg.pls, eg.text, eg.base, eg.runs, c.x, t2.y + 1) : e.key === "ArrowDown" ? eg.text.length : 0; }
+    setTa(ta, e.shiftKey ? anchor : nf, nf);
+  };
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => { // pasting a web address opens the "insert link" window
+    if (!ed || isCell) return; const t = e.clipboardData.getData("text").trim();
+    if (/^(https?:\/\/|www\.)\S+$/i.test(t)) { e.preventDefault(); const ta = e.currentTarget; useDocs.setState({ linkDlg: { id: ed.id, s: ta.selectionStart, e: ta.selectionEnd, note: field === "note", url: t, text: ta.value.slice(ta.selectionStart, ta.selectionEnd) || t } }); }
+  };
+  const caretPos = eg ? caretXY(eg.pls, eg.text, eg.base, eg.runs, (selRange ?? { e: eg.text.length }).e) : null, sr = selRange ?? { s: 0, e: 0 };
+  const plusEls = (it: { id: string; x: number; y: number; w: number; h: number }) => ([["r", it.x + it.w + off, it.y + it.h / 2], ["l", it.x - off, it.y + it.h / 2], ["t", it.x + it.w / 2, it.y - off], ["b", it.x + it.w / 2, it.y + it.h + off]] as [string, number, number][]).map(([d, cx, cy]) => (
+    <g key={d} data-plus={d} data-pid={it.id} style={{ cursor: "pointer" }}><circle cx={cx} cy={cy} r={9 / k} fill="var(--bg)" stroke="var(--accent)" strokeWidth={1.2 / k} /><path d={`M${cx - 4 / k},${cy}H${cx + 4 / k}M${cx},${cy - 4 / k}V${cy + 4 / k}`} stroke="var(--accent)" strokeWidth={1.5 / k} /></g>));
   return (
-    <div ref={root} className={"canvas" + (tool !== "select" || useDocs.getState().painter ? " tool" : "")} onDragOver={(e) => e.preventDefault()} onDrop={drop} onContextMenu={ctxm}>
-      <svg ref={svg} width="100%" height="100%" onPointerDown={down} onPointerMove={move} onPointerUp={up} onDoubleClick={dbl} onPointerLeave={() => { setEdge(null); setGh(false); setGv(false); setTv(false); }} onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}>
+    <div ref={root} className={"canvas" + (tool !== "select" || useDocs.getState().painter || inkTool ? " tool" : "")} onDragOver={(e) => e.preventDefault()} onDrop={drop} onContextMenu={ctxm}>
+      <svg ref={svg} width="100%" height="100%" onPointerDown={down} onPointerMove={move} onPointerUp={up} onDoubleClick={dbl} onPointerLeave={() => { setEdge(null); setGh(false); setGv(false); setTv(false); setHov(null); }} onMouseDown={(e) => { if (e.button === 1) e.preventDefault(); }}>
         <Defs />
         <defs dangerouslySetInnerHTML={{ __html: gridPatternSvg(tab.gridType, dark ? "#555" : "#c3c8cd") + `<clipPath id="pgclip"><rect x="0" y="0" width="${pg.w}" height="${pg.h}"/></clipPath>` }} />
         <g transform={`translate(${view.x},${view.y}) scale(${k})`}>
@@ -144,13 +198,17 @@ export function Canvas() {
           {bgEdit && bgImgs.map((im) => <rect key={"f" + im.id} x={im.x} y={im.y} width={im.w} height={im.h} fill="none" stroke="var(--accent)" strokeWidth={(im.id === bgSel ? 2 : 1) / k} strokeDasharray={`${5 / k}`} pointerEvents="none" />)}
           {selBg && HP.map(([n, fx, fy]) => <rect key={"b" + n} data-bgh={n} x={selBg.x + selBg.w * fx - hs / 2} y={selBg.y + selBg.h * fy - hs / 2} width={hs} height={hs} fill="#fff" stroke="var(--accent)" strokeWidth={1 / k} style={{ cursor: n + "-resize" }} />)}
           {Object.values(doc.conns).map((c) => doc.items[c.from] && doc.items[c.to] && <ConnView key={c.id} c={c} a={doc.items[c.from]} b={doc.items[c.to]} sel={sel.includes(c.id)} />)}
-          {doc.order.map((i) => doc.items[i] && <ItemView key={i} it={doc.items[i]} hide={i === editing ? (editSub?.k === "note" ? "note" : editSub?.k === "cell" ? undefined : "text") : undefined} dark={dark} spell={sp ? { ...sp, opts: spellOpts } : null} />)}
+          {doc.order.map((i) => doc.items[i] && <ItemView key={i} it={doc.items[i]} dark={dark} spell={sp ? { ...sp, opts: spellOpts } : null} />)}
+          <InkView strokes={doc.ink ?? []} />
+          {inkLive && <path d={inkPath(inkLive.pts)} fill="none" stroke={inkLive.c} strokeWidth={inkLive.w} strokeOpacity={inkLive.o} strokeLinecap="round" strokeLinejoin="round" style={inkLive.hl ? { mixBlendMode: "multiply" } : undefined} pointerEvents="none" />}
           {Array.from(new Set(tab.comments.map((cm) => cm.itemId).filter((x) => x && doc.items[x as string]))).map((id) => { const it = doc.items[id as string]; return <g key={"cm" + id} transform={`translate(${it.x + it.w - 4},${it.y - 4})`} pointerEvents="none"><circle r="9" fill="#ffb300" /><text y="4" textAnchor="middle" fontSize="11" fill="#000">✎</text></g>; })}
           {items.map((it) => <rect key={"s" + it.id} x={it.x - 3} y={it.y - 3} width={it.w + 6} height={it.h + 6} fill="none" stroke="var(--accent)" strokeWidth={1.5 / k} strokeDasharray={`${4 / k}`} pointerEvents="none" />)}
           {one && HP.map(([n, fx, fy]) => <rect key={n} data-handle={n} x={one.x + one.w * fx - hs / 2} y={one.y + one.h * fy - hs / 2} width={hs} height={hs} fill="#fff" stroke="var(--accent)" strokeWidth={1 / k} style={{ cursor: n + "-resize" }} />)}
-          {one && ([["r", one.x + one.w + off, one.y + one.h / 2], ["l", one.x - off, one.y + one.h / 2], ["t", one.x + one.w / 2, one.y - off], ["b", one.x + one.w / 2, one.y + one.h + off]] as [string, number, number][]).map(([d, cx, cy]) => (
-            <g key={d} data-plus={d} style={{ cursor: "pointer" }}><circle cx={cx} cy={cy} r={9 / k} fill="var(--bg)" stroke="var(--accent)" strokeWidth={1.2 / k} /><path d={`M${cx - 4 / k},${cy}H${cx + 4 / k}M${cx},${cy - 4 / k}V${cy + 4 / k}`} stroke="var(--accent)" strokeWidth={1.5 / k} /></g>
-          ))}
+          {plusFor && plusEls(plusFor)}
+          {ed && eg && caretPos && <g transform={`translate(${ed.x},${ed.y})`} pointerEvents="none"><g transform={(field === "text" ? rotXform(ed) : "") || undefined}>
+            {sr.e > sr.s && eg.pls.map((p, i) => { const a = Math.max(sr.s, p.ln.start), b = Math.min(sr.e, p.ln.end); if (sr.e < p.ln.start || sr.s > p.ln.end || (sr.e === p.ln.start && sr.s < sr.e && p.ln.start !== p.ln.end)) return null;
+              const x0 = caretXY(eg.pls, eg.text, eg.base, eg.runs, a).x, x1 = caretXY(eg.pls, eg.text, eg.base, eg.runs, b).x + (sr.e > p.ln.end ? 4 : 0); return <rect key={i} x={x0} y={p.y} width={Math.max(3, x1 - x0)} height={p.h} fill="#2f7bff" fillOpacity={0.35} />; })}
+            {sr.e === sr.s && <line className="caret" x1={caretPos.x} x2={caretPos.x} y1={caretPos.y + caretPos.h * 0.1} y2={caretPos.y + caretPos.h * 0.95} stroke="#ffffff" strokeWidth={1.6} style={{ mixBlendMode: "difference" }} />}</g></g>}
           {ghost && <rect x={ghost.x} y={ghost.y} width={ghost.w} height={ghost.h} fill={ghost.marq ? "var(--accent)" : "none"} fillOpacity={ghost.marq ? .14 : 1} stroke="var(--accent)" strokeDasharray={ghost.marq ? undefined : `${5 / k}`} strokeWidth={1.2 / k} pointerEvents="none" />}
           {line && doc.items[line.a] && <line x1={doc.items[line.a].x + doc.items[line.a].w / 2} y1={doc.items[line.a].y + doc.items[line.a].h / 2} x2={line.x} y2={line.y} stroke="var(--accent)" strokeWidth={2 / k} strokeDasharray={`${5 / k}`} pointerEvents="none" />}
           {gh && lastHead && <>
@@ -168,10 +226,11 @@ export function Canvas() {
           {edge && <g pointerEvents="none"><circle cx={edge.d === "r" ? pg.w : Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k)} cy={edge.d === "b" ? pg.h : Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k)} r={20 / k} fill="#0DF279" />
             <path d={edge.d === "r" ? `M${pg.w - 9 / k},${Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k)}h${18 / k}M${pg.w},${Math.min(Math.max(edge.y, 24 / k), pg.h - 24 / k) - 9 / k}v${18 / k}` : `M${Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k) - 9 / k},${pg.h}h${18 / k}M${Math.min(Math.max(edge.x, 24 / k), pg.w - 24 / k)},${pg.h - 9 / k}v${18 / k}`} stroke="#064" strokeWidth={4 / k} strokeLinecap="round" /></g>}
           {ed && er && <foreignObject x={er.x} y={er.y} width={er.w} height={er.h}>
-            <textarea ref={taRef} autoFocus spellCheck={spell} lang={spellLang} value={val} onChange={(e) => onChange(e.target.value)}
-              onSelect={(e) => { const t = e.currentTarget; A().setSelRange({ s: t.selectionStart, e: t.selectionEnd }); }}
-              onKeyDown={(e) => { const mod = e.ctrlKey || e.metaKey, fin = e.key === "Enter" && (mod || (enterMode === "finish" && !e.shiftKey)); if (e.key === "Escape" || fin) { e.preventDefault(); A().setEditing(null); } }}
-              style={{ width: "100%", height: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "2px dashed var(--accent)", background: "var(--bg)", color: "var(--fg)", fontSize: edBase.z, fontWeight: edBase.b ? 700 : 400, fontStyle: edBase.i ? "italic" : "normal", textAlign: (ed.kind === "notepad" ? "left" : ed.ha ?? "center") as any, fontFamily: edBase.f, padding: `${edPad}px 6px 4px`, outline: "none" }} />
+            <textarea ref={taRef} autoFocus spellCheck={spell} lang={spellLang} value={val} onChange={(e) => { onChange(e.target.value); const t = e.currentTarget; A().setSelRange({ s: t.selectionStart, e: t.selectionEnd }); }}
+              onSelect={(e) => { const t = e.currentTarget; A().setSelRange({ s: t.selectionStart, e: t.selectionEnd }); }} onKeyUp={(e) => { const t = e.currentTarget; A().setSelRange({ s: t.selectionStart, e: t.selectionEnd }); }}
+              onKeyDown={onKey} onPaste={onPaste}
+              style={isCell ? { width: "100%", height: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", border: "2px dashed var(--accent)", background: "var(--bg)", color: "var(--fg)", fontSize: edBase.z, textAlign: "center", fontFamily: edBase.f, padding: `${cellPad}px 6px 4px`, outline: "none" }
+                : { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", opacity: 0, pointerEvents: "none", resize: "none" }} />
           </foreignObject>}
         </g>
       </svg>
