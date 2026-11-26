@@ -144,7 +144,6 @@ Tauri 2 (Rust) · React · TypeScript · Vite · Zustand · pdf-lib · JSZip · 
 
 ## Notes
 
-- MindManager (`.mmap`) is not supported because there is no public file format specification that permits it.
 - Visio support covers shapes, text and connectors, not full Visio features.
 
 ---
