@@ -10,7 +10,7 @@
 **A lightweight, cross-platform mind map and diagram editor.**
 Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app.
 
-[Türkçe](README.tr.md) · Version 1.0.0 · by Canomorph Creative
+[Türkçe](README.tr.md)[中文](README.cn.md) · Version 1.0.0 · by Canomorph Creative
 
 
 </div>
