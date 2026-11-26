@@ -2,10 +2,17 @@
 
 # CanoMind
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Platforms: Windows, macOS, Linux](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
+[![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB.svg)](https://tauri.app)
+
 **A lightweight, cross-platform mind map and diagram editor.**
 Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app.
 
 [Türkçe](README.tr.md) · Version 1.0.0 · by Canomorph Creative
+
+Overview · Features · Keyboard shortcuts · Getting started · Tech stack · Notes · License
 
 </div>
 
@@ -14,6 +21,8 @@ Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 ## Overview
 
 CanoMind combines the production power of Visio, XMind, MindManager and Gantt tools in a modern, Office-style interface. It is built with [Tauri](https://tauri.app), so it stays small, fast and native on Windows, macOS and Linux.
+
+---
 
 ## Features
 
@@ -54,6 +63,8 @@ CanoMind combines the production power of Visio, XMind, MindManager and Gantt to
 - Interface languages: English, Turkish and Chinese. Spell-check language is separate.
 - Adjustable UI scale and configurable Enter-key behavior.
 
+---
+
 ## Keyboard shortcuts
 
 | Action | Shortcut |
@@ -67,6 +78,8 @@ CanoMind combines the production power of Visio, XMind, MindManager and Gantt to
 | Pan | middle mouse, `Alt`+drag, `Shift`+wheel |
 | Zoom | `Ctrl`+wheel |
 | Presentation | `F5` |
+
+---
 
 ## Getting started
 
@@ -82,15 +95,29 @@ npm run tauri build    # create installers (MSI and NSIS on Windows)
 
 `npm install` also fetches the spell-check dictionaries and copies them into `public/dict`.
 
+---
+
 ## Tech stack
 
 Tauri 2 (Rust) · React · TypeScript · Vite · Zustand · pdf-lib · JSZip · nspell (Hunspell)
+
+---
 
 ## Notes
 
 - MindManager (`.mmap`) is not supported because there is no public file format specification that permits it.
 - Visio support covers shapes, text and connectors, not full Visio features.
 
+---
+
 ## License
 
-Add your license here.
+This project is licensed under the **MIT License**.
+
+Copyright (c) 2026 Canomorph Creative
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
