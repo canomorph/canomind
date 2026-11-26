@@ -1,204 +1,189 @@
-# .github/workflows/build.yml
-
 name: Build & Release
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   APP_NAME: myapp
-  VERSION: 1.0.0
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: ubuntu-24.04
 
-      - name: Install dependencies
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fpm appimagetool squashfs-tools
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            squashfs-tools \
+            zstd
 
-      - name: Build
-        run: |
-          # === KENDI DERLEME KOMUTUNU BURAYA YAZ ===
-          mkdir -p dist
-          echo "placeholder build"
-          touch dist/${APP_NAME}
-          chmod +x dist/${APP_NAME}
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-      - name: Create package directory
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Linux bundles
+        run: npm run tauri build -- --bundles deb,rpm,appimage
+
+      - name: Create Arch package
+        shell: bash
         run: |
-          mkdir -p package/usr/bin
-          mkdir -p package/usr/share/applications
-          cp dist/${APP_NAME} package/usr/bin/
-          chmod +x package/usr/bin/${APP_NAME}
-          cat > package/usr/share/applications/${APP_NAME}.desktop <<EOF
+          set -euo pipefail
+
+          sudo gem install --no-document fpm
+
+          mkdir -p package/usr/bin package/usr/share/applications
+          install -m 755 "src-tauri/target/release/${APP_NAME}" \
+            "package/usr/bin/${APP_NAME}"
+
+          cat > "package/usr/share/applications/${APP_NAME}.desktop" <<EOF
           [Desktop Entry]
           Name=${APP_NAME}
           Exec=${APP_NAME}
           Type=Application
+          Terminal=false
+          Categories=Utility;
           EOF
 
-      - name: Create .tar.gz
-        run: |
-          tar -czf dist/${APP_NAME}-linux-x86_64.tar.gz -C package .
-
-      - name: Create .deb
-        run: |
-          fpm -s dir -t deb \
-            -n ${APP_NAME} \
-            -v ${VERSION} \
-            --architecture x86_64 \
-            --description "My Application" \
-            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.deb \
-            package/
-
-      - name: Create .rpm
-        run: |
-          fpm -s dir -t rpm \
-            -n ${APP_NAME} \
-            -v ${VERSION} \
-            --architecture x86_64 \
-            --description "My Application" \
-            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.rpm \
-            package/
-
-      - name: Create .pkg.tar.zst
-        run: |
           fpm -s dir -t pacman \
-            -n ${APP_NAME} \
-            -v ${VERSION} \
+            -n "${APP_NAME}" \
+            -v "1.0.${GITHUB_RUN_NUMBER}" \
             --architecture x86_64 \
-            --description "My Application" \
-            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.pkg.tar.zst \
-            package/
+            --description "Tauri application" \
+            -p "src-tauri/target/release/bundle/${APP_NAME}-linux-x86_64.pkg.tar.zst" \
+            -C package .
 
-      - name: Create .AppImage
+      - name: Create Linux tar.gz
+        shell: bash
         run: |
-          curl -L -o appimage-runtime \
-            https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
-          chmod +x appimage-runtime
-          mkdir -p AppDir/usr/bin
-          cp dist/${APP_NAME} AppDir/usr/bin/
-          cp package/usr/share/applications/${APP_NAME}.desktop AppDir/
-          cat > AppDir/AppRun <<'EOF'
-          #!/bin/bash
-          exec "$(dirname "$0")/usr/bin/${APP_NAME}" "$@"
-          EOF
-          chmod +x AppDir/AppRun
-          ./appimage-runtime AppDir
-          mv ${APP_NAME}-x86_64.AppImage dist/${APP_NAME}-${VERSION}-linux-x86_64.AppImage
+          set -euo pipefail
+          mkdir -p release-files
+          tar -czf "release-files/${APP_NAME}-linux-x86_64.tar.gz" \
+            -C "src-tauri/target/release" "${APP_NAME}"
 
-      - name: Upload artifacts
+      - name: Collect Linux packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          find src-tauri/target/release/bundle \
+            -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.pkg.tar.zst' \) \
+            -exec cp {} release-files/ \;
+          ls -lah release-files
+
+      - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
-          path: dist/*
-          retention-days: 1
+          path: release-files/*
+          if-no-files-found: error
+          retention-days: 7
 
   build-macos:
     runs-on: macos-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install create-dmg
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-      - name: Build
-        run: |
-          # === KENDİ DERLEME KOMUTUNU BURAYA YAZ ===
-          mkdir -p dist
-          echo "placeholder build"
-          touch dist/${APP_NAME}
-          chmod +x dist/${APP_NAME}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Create .app bundle
-        run: |
-          APP_BUNDLE="dist/${APP_NAME}.app"
-          mkdir -p "${APP_BUNDLE}/Contents/MacOS"
-          mkdir -p "${APP_BUNDLE}/Contents/Resources"
-          cp dist/${APP_NAME} "${APP_BUNDLE}/Contents/MacOS/"
-          cat > "${APP_BUNDLE}/Contents/Info.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key>
-            <string>${APP_NAME}</string>
-            <key>CFBundleExecutable</key>
-            <string>${APP_NAME}</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.example.${APP_NAME}</string>
-            <key>CFBundleVersion</key>
-            <string>${VERSION}</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-          </dict>
-          </plist>
-          EOF
+      - name: Install frontend dependencies
+        run: npm ci
 
-      - name: Create .tar.gz
-        run: |
-          tar -czf dist/${APP_NAME}-macos-x86_64.tar.gz -C dist ${APP_NAME}.app
+      - name: Build macOS app and DMG
+        run: npm run tauri build -- --bundles app,dmg
 
-      - name: Create .dmg
+      - name: Create macOS tar.gz and pkg
+        shell: bash
         run: |
-          create-dmg \
-            --volname "${APP_NAME}" \
-            --window-size 660 400 \
-            --icon-size 100 \
-            --app-drop-link 500 185 \
-            --no-code-sign \
-            "dist/${APP_NAME}-${VERSION}-macos-x86_64.dmg" \
-            "dist/${APP_NAME}.app"
+          set -euo pipefail
+          mkdir -p release-files
 
-      - name: Create .pkg
-        run: |
+          APP_PATH="$(find src-tauri/target/release/bundle/macos \
+            -maxdepth 1 -name '*.app' -print -quit)"
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Tauri .app bundle was not found."
+            exit 1
+          fi
+
+          APP_BASENAME="$(basename "$APP_PATH")"
+
+          tar -czf "release-files/${APP_NAME}-macos.tar.gz" \
+            -C "$(dirname "$APP_PATH")" "$APP_BASENAME"
+
           pkgbuild \
-            --identifier com.example.${APP_NAME} \
-            --version ${VERSION} \
-            --install-location /Applications \
-            "dist/${APP_NAME}-installer-${VERSION}.pkg" \
-            "dist/${APP_NAME}.app"
+            --identifier "com.example.${APP_NAME}" \
+            --version "1.0.${GITHUB_RUN_NUMBER}" \
+            --install-location "/Applications/${APP_BASENAME}" \
+            "release-files/${APP_NAME}-macos.pkg" \
+            "$APP_PATH"
 
-      - name: Upload artifacts
+          find src-tauri/target/release/bundle/macos \
+            -maxdepth 1 -name '*.dmg' -exec cp {} release-files/ \;
+
+          ls -lah release-files
+
+      - name: Upload macOS packages
         uses: actions/upload-artifact@v4
         with:
           name: macos-packages
-          path: dist/*
-          retention-days: 1
+          path: release-files/*
+          if-no-files-found: error
+          retention-days: 7
 
   release:
-    needs: [build-linux, build-macos]
+    needs:
+      - build-linux
+      - build-macos
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download all packages
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts/
+          path: release-files
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/linux-packages/*
-            artifacts/macos-packages/*
-          body: |
-            ## Linux
-            - .tar.gz
-            - .deb
-            - .rpm
-            - .pkg.tar.zst (Arch)
-            - .AppImage
-
-            ## macOS
-            - .dmg
-            - .pkg
-            - .tar.gz   
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: release-files/**/*
+          generate_release_notes: true
