@@ -1,5 +1,3 @@
-# .github/workflows/build.yml
-
 name: Build & Release
 
 on:
@@ -190,7 +188,7 @@ jobs:
           path: dist/*
           retention-days: 1
 
-  release:
+    release:
     needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
     permissions:
@@ -206,19 +204,19 @@ jobs:
           files: |
             artifacts/linux-packages/*
             artifacts/macos-packages/*
-        body: |
-          ## Linux
-          | Format | Dosya |
-          |--------|-------|
-          | .tar.gz | ${APP_NAME}-linux-x86_64.tar.gz |
-          | .deb | ${APP_NAME}-linux-x86_64.deb |
-          | .rpm | ${APP_NAME}-linux-x86_64.rpm |
-          | .pkg.tar.zst (Arch) | ${APP_NAME}-linux-x86_64.pkg.tar.zst |
-          | .AppImage | ${APP_NAME}-linux-x86_64.AppImage |
+          body: |
+            ## Linux
+            | Format | Dosya |
+            |--------|-------|
+            | .tar.gz | ${APP_NAME}-linux-x86_64.tar.gz |
+            | .deb | ${APP_NAME}-linux-x86_64.deb |
+            | .rpm | ${APP_NAME}-linux-x86_64.rpm |
+            | .pkg.tar.zst | ${APP_NAME}-linux-x86_64.pkg.tar.zst |
+            | .AppImage | ${APP_NAME}-linux-x86_64.AppImage |
 
-          ## macOS
-          | Format | Dosya |
-          |--------|-------|
-          | .dmg | ${APP_NAME}-macos-x86_64.dmg |
-          | .pkg | ${APP_NAME}-installer-macos-x86_64.pkg |
-          | .tar.gz | ${APP_NAME}-macos-x86_64.tar.gz |
+            ## macOS
+            | Format | Dosya |
+            |--------|-------|
+            | .dmg | ${APP_NAME}-macos-x86_64.dmg |
+            | .pkg | ${APP_NAME}-installer-macos-x86_64.pkg |
+            | .tar.gz | ${APP_NAME}-macos-x86_64.tar.gz |   
