@@ -1,0 +1,224 @@
+# .github/workflows/build.yml
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  APP_NAME: myapp          # ← kendi uygulama adın
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpm appimagetool squashfs-tools
+
+      - name: Build
+        run: |
+          # === KENDİ DERLEME KOMUTUNU BURAYA YAZ ===
+          # Örnek: cmake -B build && cmake --build build
+          # Örnek: go build -o dist/${APP_NAME} .
+          # Örnek: cargo build --release
+          echo "placeholder build"
+          mkdir -p dist
+          cp build/${APP_NAME} dist/ 2>/dev/null || true
+
+      - name: Create package directory
+        run: |
+          mkdir -p package/usr/bin
+          mkdir -p package/usr/share/applications
+          mkdir -p package/usr/share/icons/hicolor/256x256/apps
+          cp dist/${APP_NAME} package/usr/bin/
+          chmod +x package/usr/bin/${APP_NAME}
+          # .desktop dosyası (isteğe bağlı)
+          cat > package/usr/share/applications/${APP_NAME}.desktop <<EOF
+          [Desktop Entry]
+          Name=${APP_NAME}
+          Exec=${APP_NAME}
+          Type=Application
+          Icon=${APP_NAME}
+          EOF
+
+      - name: Create .tar.gz
+        run: |
+          tar -czf dist/${APP_NAME}-linux-x86_64.tar.gz -C package .
+
+      - name: Create .deb
+        run: |
+          fpm -s dir -t deb \
+            -n ${APP_NAME} \
+            -v ${VERSION} \
+            --architecture x86_64 \
+            --description "My Application" \
+            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.deb \
+            package/
+
+      - name: Create .rpm
+        run: |
+          fpm -s dir -t rpm \
+            -n ${APP_NAME} \
+            -v ${VERSION} \
+            --architecture x86_64 \
+            --description "My Application" \
+            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.rpm \
+            package/
+
+      - name: Create .pkg.tar.zst (Arch/Manjaro)
+        run: |
+          fpm -s dir -t pacman \
+            -n ${APP_NAME} \
+            -v ${VERSION} \
+            --architecture x86_64 \
+            --description "My Application" \
+            -p dist/${APP_NAME}-${VERSION}-linux-x86_64.pkg.tar.zst \
+            package/
+
+      - name: Create .AppImage
+        run: |
+          # AppImage runtime indir
+          curl -L -o appimage-runtime \
+            https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
+          chmod +x appimage-runtime
+
+          # AppDir hazırla
+          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps
+          cp dist/${APP_NAME} AppDir/usr/bin/
+          cp package/usr/share/applications/*.desktop AppDir/ 2>/dev/null || true
+
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/bash
+          exec "$(dirname "$0")/usr/bin/${APP_NAME}" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # .desktop dosyasını köke kopyala (AppImage gereksinimi)
+          cp package/usr/share/applications/${APP_NAME}.desktop AppDir/
+
+          ./appimage-runtime AppDir
+          mv ${APP_NAME}-x86_64.AppImage dist/${APP_NAME}-${VERSION}-linux-x86_64.AppImage
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/*
+          retention-days: 1
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install create-dmg
+
+      - name: Build
+        run: |
+          # === KENDİ DERLEME KOMUTUNU BURAYA YAZ ===
+          # Örnek: cmake -B build && cmake --build build
+          # Örnek: go build -o dist/${APP_NAME} .
+          # Örnek: cargo build --release
+          echo "placeholder build"
+          mkdir -p dist
+          cp build/${APP_NAME} dist/ 2>/dev/null || true
+
+      - name: Create .app bundle
+        run: |
+          APP_BUNDLE="dist/${APP_NAME}.app"
+          mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+          mkdir -p "${APP_BUNDLE}/Contents/Resources"
+          cp dist/${APP_NAME} "${APP_BUNDLE}/Contents/MacOS/"
+          cat > "${APP_BUNDLE}/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleExecutable</key>
+            <string>${APP_NAME}</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.example.${APP_NAME}</string>
+            <key>CFBundleVersion</key>
+            <string>${VERSION}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Create .tar.gz
+        run: |
+          tar -czf dist/${APP_NAME}-macos-x86_64.tar.gz -C dist ${APP_NAME}.app
+
+      - name: Create .dmg
+        run: |
+          create-dmg \
+            --volname "${APP_NAME}" \
+            --window-size 660 400 \
+            --icon-size 100 \
+            --app-drop-link 500 185 \
+            --no-code-sign \
+            "dist/${APP_NAME}-${VERSION}-macos-x86_64.dmg" \
+            "dist/${APP_NAME}.app"
+
+      - name: Create .pkg
+        run: |
+          # pkgbuild: .app → .pkg (built-in macOS tool)
+          pkgbuild \
+            --identifier com.example.${APP_NAME} \
+            --version ${VERSION} \
+            --install-location /Applications \
+            "dist/${APP_NAME}-installer-${VERSION}.pkg" \
+            "dist/${APP_NAME}.app"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packages
+          path: dist/*
+          retention-days: 1
+
+  release:
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/linux-packages/*
+            artifacts/macos-packages/*
+        body: |
+          ## Linux
+          | Format | Dosya |
+          |--------|-------|
+          | .tar.gz | ${APP_NAME}-linux-x86_64.tar.gz |
+          | .deb | ${APP_NAME}-linux-x86_64.deb |
+          | .rpm | ${APP_NAME}-linux-x86_64.rpm |
+          | .pkg.tar.zst (Arch) | ${APP_NAME}-linux-x86_64.pkg.tar.zst |
+          | .AppImage | ${APP_NAME}-linux-x86_64.AppImage |
+
+          ## macOS
+          | Format | Dosya |
+          |--------|-------|
+          | .dmg | ${APP_NAME}-macos-x86_64.dmg |
+          | .pkg | ${APP_NAME}-installer-macos-x86_64.pkg |
+          | .tar.gz | ${APP_NAME}-macos-x86_64.tar.gz |
