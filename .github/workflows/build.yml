@@ -59,12 +59,20 @@ jobs:
 
           sudo gem install --no-document fpm
 
-          BIN_NAME="$(cargo metadata --no-deps --format-version 1 | python3 -c '
+          BIN_NAME="$(cargo metadata \
+            --manifest-path src-tauri/Cargo.toml \
+            --no-deps \
+            --format-version 1 | python3 -c '
           import json, sys
+
           data = json.load(sys.stdin)
           for package in data["packages"]:
               if package["manifest_path"].endswith("/src-tauri/Cargo.toml"):
-                  bins = [target["name"] for target in package["targets"] if "bin" in target["kind"]]
+                  bins = [
+                      target["name"]
+                      for target in package["targets"]
+                      if "bin" in target["kind"]
+                  ]
                   if bins:
                       print(bins[0])
                       break
@@ -104,12 +112,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          BIN_NAME="$(cargo metadata --no-deps --format-version 1 | python3 -c '
+          BIN_NAME="$(cargo metadata \
+            --manifest-path src-tauri/Cargo.toml \
+            --no-deps \
+            --format-version 1 | python3 -c '
           import json, sys
+
           data = json.load(sys.stdin)
           for package in data["packages"]:
               if package["manifest_path"].endswith("/src-tauri/Cargo.toml"):
-                  bins = [target["name"] for target in package["targets"] if "bin" in target["kind"]]
+                  bins = [
+                      target["name"]
+                      for target in package["targets"]
+                      if "bin" in target["kind"]
+                  ]
                   if bins:
                       print(bins[0])
                       break
@@ -200,7 +216,8 @@ jobs:
             "release-files/${APP_NAME}-macos.pkg"
 
           find src-tauri/target/release/bundle/macos \
-            -maxdepth 1 -name '*.dmg' \
+            -maxdepth 1 \
+            -name '*.dmg' \
             -exec cp {} release-files/ \;
 
           ls -lah release-files
