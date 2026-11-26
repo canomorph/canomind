@@ -12,7 +12,6 @@ Mind maps, flowcharts, org charts, Gantt plans and more, in one fast desktop app
 
 [Türkçe](README.tr.md) · Version 1.0.0 · by Canomorph Creative
 
-Overview · Features · Keyboard shortcuts · Getting started · Tech stack · Notes · License
 
 </div>
 
@@ -21,6 +20,24 @@ Overview · Features · Keyboard shortcuts · Getting started · Tech stack · N
 ## Overview
 
 CanoMind combines the production power of Visio, XMind, MindManager and Gantt tools in a modern, Office-style interface. It is built with [Tauri](https://tauri.app), so it stays small, fast and native on Windows, macOS and Linux.
+
+
+---
+## Screenshots
+-------
+#### New Drawing Feature
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 094045" src="https://github.com/user-attachments/assets/f1799624-0111-447f-97ad-24c260b220ab" />
+
+#### New Themes
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 093733" src="https://github.com/user-attachments/assets/da13918c-4304-4ca2-bb00-d02e76bda0c3" />
+
+#### New Timeline Template
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 093720" src="https://github.com/user-attachments/assets/3d704d45-3471-4e22-aca2-db2626c5d378" />
+
+---
 
 ---
 
