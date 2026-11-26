@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  APP_NAME: myapp
+  APP_NAME: canomind
 
 jobs:
   build-linux:
@@ -27,6 +27,7 @@ jobs:
             build-essential \
             curl \
             file \
+            libarchive-tools \
             libayatana-appindicator3-dev \
             libssl-dev \
             libwebkit2gtk-4.1-dev \
@@ -36,6 +37,11 @@ jobs:
             rpm \
             squashfs-tools \
             zstd
+
+      - name: Verify bsdtar
+        run: |
+          command -v bsdtar
+          bsdtar --version
 
       - name: Install Node.js
         uses: actions/setup-node@v7
