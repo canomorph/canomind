@@ -59,14 +59,33 @@ jobs:
 
           sudo gem install --no-document fpm
 
+          BIN_NAME="$(cargo metadata --no-deps --format-version 1 | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for package in data["packages"]:
+              if package["manifest_path"].endswith("/src-tauri/Cargo.toml"):
+                  bins = [target["name"] for target in package["targets"] if "bin" in target["kind"]]
+                  if bins:
+                      print(bins[0])
+                      break
+          ')"
+
+          if [ -z "$BIN_NAME" ]; then
+            echo "Tauri binary adı Cargo metadata içinden bulunamadı."
+            exit 1
+          fi
+
+          echo "Bulunan binary: ${BIN_NAME}"
+          test -f "src-tauri/target/release/${BIN_NAME}"
+
           mkdir -p package/usr/bin package/usr/share/applications
-          install -m 755 "src-tauri/target/release/${APP_NAME}" \
-            "package/usr/bin/${APP_NAME}"
+          install -m 755 "src-tauri/target/release/${BIN_NAME}" \
+            "package/usr/bin/${BIN_NAME}"
 
           cat > "package/usr/share/applications/${APP_NAME}.desktop" <<EOF
           [Desktop Entry]
           Name=${APP_NAME}
-          Exec=${APP_NAME}
+          Exec=${BIN_NAME}
           Type=Application
           Terminal=false
           Categories=Utility;
@@ -84,18 +103,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          BIN_NAME="$(cargo metadata --no-deps --format-version 1 | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          for package in data["packages"]:
+              if package["manifest_path"].endswith("/src-tauri/Cargo.toml"):
+                  bins = [target["name"] for target in package["targets"] if "bin" in target["kind"]]
+                  if bins:
+                      print(bins[0])
+                      break
+          ')"
+
+          if [ -z "$BIN_NAME" ]; then
+            echo "Tauri binary adı Cargo metadata içinden bulunamadı."
+            exit 1
+          fi
+
+          test -f "src-tauri/target/release/${BIN_NAME}"
           mkdir -p release-files
+
           tar -czf "release-files/${APP_NAME}-linux-x86_64.tar.gz" \
-            -C "src-tauri/target/release" "${APP_NAME}"
+            -C "src-tauri/target/release" "${BIN_NAME}"
 
       - name: Collect Linux packages
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release-files
+
           find src-tauri/target/release/bundle \
-            -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.pkg.tar.zst' \) \
+            -type f \( \
+              -name '*.deb' -o \
+              -name '*.rpm' -o \
+              -name '*.AppImage' -o \
+              -name '*.pkg.tar.zst' \
+            \) \
             -exec cp {} release-files/ \;
+
           ls -lah release-files
 
       - name: Upload Linux packages
@@ -138,7 +183,7 @@ jobs:
             -maxdepth 1 -name '*.app' -print -quit)"
 
           if [ -z "$APP_PATH" ]; then
-            echo "Tauri .app bundle was not found."
+            echo "Tauri .app bundle bulunamadı."
             exit 1
           fi
 
@@ -150,12 +195,13 @@ jobs:
           pkgbuild \
             --identifier "com.example.${APP_NAME}" \
             --version "1.0.${GITHUB_RUN_NUMBER}" \
-            --install-location "/Applications/${APP_BASENAME}" \
-            "release-files/${APP_NAME}-macos.pkg" \
-            "$APP_PATH"
+            --install-location "/Applications" \
+            --component "$APP_PATH" \
+            "release-files/${APP_NAME}-macos.pkg"
 
           find src-tauri/target/release/bundle/macos \
-            -maxdepth 1 -name '*.dmg' -exec cp {} release-files/ \;
+            -maxdepth 1 -name '*.dmg' \
+            -exec cp {} release-files/ \;
 
           ls -lah release-files
 
