@@ -10,7 +10,7 @@
 **轻量级、跨平台的思维导图与图表编辑器。**
 思维导图、流程图、组织结构图、甘特图等，尽在一款快速的桌面应用中。
 
-[English](README.md) · [Türkçe](README.tr.md) · 版本 1.0.0 · 由 Canomorph Creative 开发
+[English](README.md) · [Türkçe](README.tr.md) · [中文](README.cn.md) · 版本 1.0.0 · 由 Canomorph Creative 开发
 
 概述 · 功能 · 键盘快捷键 · 快速开始 · 技术栈 · 注意事项 · 许可证
 
