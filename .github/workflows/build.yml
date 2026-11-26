@@ -1,3 +1,5 @@
+# .github/workflows/build.yml
+
 name: Build & Release
 
 on:
@@ -6,7 +8,7 @@ on:
       - 'v*'
 
 env:
-  APP_NAME: myapp          # ← kendi uygulama adın
+  APP_NAME: myapp
   VERSION: ${{ github.ref_name }}
 
 jobs:
@@ -23,27 +25,22 @@ jobs:
       - name: Build
         run: |
           # === KENDİ DERLEME KOMUTUNU BURAYA YAZ ===
-          # Örnek: cmake -B build && cmake --build build
-          # Örnek: go build -o dist/${APP_NAME} .
-          # Örnek: cargo build --release
-          echo "placeholder build"
           mkdir -p dist
-          cp build/${APP_NAME} dist/ 2>/dev/null || true
+          echo "placeholder build"
+          touch dist/${APP_NAME}
+          chmod +x dist/${APP_NAME}
 
       - name: Create package directory
         run: |
           mkdir -p package/usr/bin
           mkdir -p package/usr/share/applications
-          mkdir -p package/usr/share/icons/hicolor/256x256/apps
           cp dist/${APP_NAME} package/usr/bin/
           chmod +x package/usr/bin/${APP_NAME}
-          # .desktop dosyası (isteğe bağlı)
           cat > package/usr/share/applications/${APP_NAME}.desktop <<EOF
           [Desktop Entry]
           Name=${APP_NAME}
           Exec=${APP_NAME}
           Type=Application
-          Icon=${APP_NAME}
           EOF
 
       - name: Create .tar.gz
@@ -70,7 +67,7 @@ jobs:
             -p dist/${APP_NAME}-${VERSION}-linux-x86_64.rpm \
             package/
 
-      - name: Create .pkg.tar.zst (Arch/Manjaro)
+      - name: Create .pkg.tar.zst
         run: |
           fpm -s dir -t pacman \
             -n ${APP_NAME} \
@@ -82,25 +79,17 @@ jobs:
 
       - name: Create .AppImage
         run: |
-          # AppImage runtime indir
           curl -L -o appimage-runtime \
             https://github.com/AppImage/AppImageKit/releases/latest/download/appimagetool-x86_64.AppImage
           chmod +x appimage-runtime
-
-          # AppDir hazırla
-          mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/bin
           cp dist/${APP_NAME} AppDir/usr/bin/
-          cp package/usr/share/applications/*.desktop AppDir/ 2>/dev/null || true
-
+          cp package/usr/share/applications/${APP_NAME}.desktop AppDir/
           cat > AppDir/AppRun <<'EOF'
           #!/bin/bash
           exec "$(dirname "$0")/usr/bin/${APP_NAME}" "$@"
           EOF
           chmod +x AppDir/AppRun
-
-          # .desktop dosyasını köke kopyala (AppImage gereksinimi)
-          cp package/usr/share/applications/${APP_NAME}.desktop AppDir/
-
           ./appimage-runtime AppDir
           mv ${APP_NAME}-x86_64.AppImage dist/${APP_NAME}-${VERSION}-linux-x86_64.AppImage
 
@@ -123,12 +112,10 @@ jobs:
       - name: Build
         run: |
           # === KENDİ DERLEME KOMUTUNU BURAYA YAZ ===
-          # Örnek: cmake -B build && cmake --build build
-          # Örnek: go build -o dist/${APP_NAME} .
-          # Örnek: cargo build --release
-          echo "placeholder build"
           mkdir -p dist
-          cp build/${APP_NAME} dist/ 2>/dev/null || true
+          echo "placeholder build"
+          touch dist/${APP_NAME}
+          chmod +x dist/${APP_NAME}
 
       - name: Create .app bundle
         run: |
@@ -173,7 +160,6 @@ jobs:
 
       - name: Create .pkg
         run: |
-          # pkgbuild: .app → .pkg (built-in macOS tool)
           pkgbuild \
             --identifier com.example.${APP_NAME} \
             --version ${VERSION} \
@@ -188,7 +174,7 @@ jobs:
           path: dist/*
           retention-days: 1
 
-    release:
+  release:
     needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
     permissions:
@@ -206,17 +192,13 @@ jobs:
             artifacts/macos-packages/*
           body: |
             ## Linux
-            | Format | Dosya |
-            |--------|-------|
-            | .tar.gz | ${APP_NAME}-linux-x86_64.tar.gz |
-            | .deb | ${APP_NAME}-linux-x86_64.deb |
-            | .rpm | ${APP_NAME}-linux-x86_64.rpm |
-            | .pkg.tar.zst | ${APP_NAME}-linux-x86_64.pkg.tar.zst |
-            | .AppImage | ${APP_NAME}-linux-x86_64.AppImage |
+            - .tar.gz
+            - .deb
+            - .rpm
+            - .pkg.tar.zst (Arch)
+            - .AppImage
 
             ## macOS
-            | Format | Dosya |
-            |--------|-------|
-            | .dmg | ${APP_NAME}-macos-x86_64.dmg |
-            | .pkg | ${APP_NAME}-installer-macos-x86_64.pkg |
-            | .tar.gz | ${APP_NAME}-macos-x86_64.tar.gz |   
+            - .dmg
+            - .pkg
+            - .tar.gz   
