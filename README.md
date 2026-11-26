@@ -25,6 +25,11 @@ CanoMind combines the production power of Visio, XMind, MindManager and Gantt to
 ---
 ## Screenshots
 -------
+<img width="400" alt="Ekran görüntüsü 2026-11-16 205500" src="https://github.com/user-attachments/assets/7fb37fe9-2597-414c-956b-2ca7172355e4" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 205647" src="https://github.com/user-attachments/assets/7ea8fe4a-44ea-461b-b9d1-7e17e9e42fe6" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 210724" src="https://github.com/user-attachments/assets/131ca468-a7eb-4f95-be36-75b90a071866" />
+<img width="400" alt="Ekran görüntüsü 2026-11-16 210015" src="https://github.com/user-attachments/assets/1a0e8ef8-ee32-41a8-bf31-4b9ce021607c" />
+
 #### New Drawing Feature
 
 <img width="800" alt="Ekran görüntüsü 2026-11-26 094045" src="https://github.com/user-attachments/assets/f1799624-0111-447f-97ad-24c260b220ab" />
