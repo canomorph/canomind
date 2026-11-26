@@ -12,9 +12,25 @@ Zihin haritaları, akış şemaları, organizasyon şemaları, Gantt planları v
 
 [English](README.md) · Sürüm 1.0.0 · Canomorph Creative tarafından
 
-Genel Bakış · Özellikler · Klavye Kısayolları · Başlarken · Teknoloji Yığını · Notlar · Lisans
-
 </div>
+
+---
+##  Ekran Görüntüleri
+-------
+
+#### Yeni Çizim Özelliği
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 094045" src="https://github.com/user-attachments/assets/f1799624-0111-447f-97ad-24c260b220ab" />
+
+#### Yeni Temalar
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 093733" src="https://github.com/user-attachments/assets/da13918c-4304-4ca2-bb00-d02e76bda0c3" />
+
+#### Yeni Zaman Çizelgesi Şablonu
+
+<img width="800" alt="Ekran görüntüsü 2026-11-26 093720" src="https://github.com/user-attachments/assets/3d704d45-3471-4e22-aca2-db2626c5d378" />
+
+---
 
 ---
 
